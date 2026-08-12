@@ -293,7 +293,9 @@ static Value native_compress_encode_response(int arg_count, Value* args) {
     }
 
     ObjString* body_key = obj_string_new("body", 4);
+    gc_push_root(OBJ_VAL(body_key));
     ObjString* enc_key = obj_string_new("encoding", 8);
+    gc_push_root(OBJ_VAL(enc_key));
 
     if (accepts_gzip) {
         // Compress with gzip
@@ -336,6 +338,8 @@ static Value native_compress_encode_response(int arg_count, Value* args) {
         obj_map_set(result, enc_key, OBJ_VAL(enc_val));
     }
 
+    gc_pop_root(); // enc_key
+    gc_pop_root(); // body_key
     gc_pop_root();
     return OBJ_VAL(result);
 }

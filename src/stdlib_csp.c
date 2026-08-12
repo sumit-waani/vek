@@ -21,7 +21,6 @@ static const char* csp_directive_name(const char* key, uint32_t len) {
     if (len == 10 && memcmp(key, "worker_src", 10) == 0) return "worker-src";
     if (len == 15 && memcmp(key, "frame_ancestors", 15) == 0) return "frame-ancestors";
     if (len == 8  && memcmp(key, "base_uri", 8) == 0) return "base-uri";
-    if (len == 10 && memcmp(key, "form_action", 11) == 0) return "form-action";
     if (len == 11 && memcmp(key, "form_action", 11) == 0) return "form-action";
     if (len == 10 && memcmp(key, "report_uri", 10) == 0) return "report-uri";
     // If already has hyphen or is unrecognized, use as-is (we'll copy it)

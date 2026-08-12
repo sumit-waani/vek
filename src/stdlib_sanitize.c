@@ -216,7 +216,17 @@ static Value native_sanitize_html(int arg_count, Value* args) {
                         san_buf_append(&buf, s + attr_start, attr_len);
                         if (attr_value) {
                             san_buf_append(&buf, "=\"", 2);
-                            san_buf_append(&buf, attr_value, attr_value_len);
+                            // HTML-escape the attribute value to prevent breakout
+                            for (size_t av_i = 0; av_i < attr_value_len; av_i++) {
+                                char ch = attr_value[av_i];
+                                switch (ch) {
+                                    case '"':  san_buf_append(&buf, "&quot;", 6); break;
+                                    case '&':  san_buf_append(&buf, "&amp;", 5); break;
+                                    case '<':  san_buf_append(&buf, "&lt;", 4); break;
+                                    case '>':  san_buf_append(&buf, "&gt;", 4); break;
+                                    default:   san_buf_char(&buf, ch); break;
+                                }
+                            }
                             san_buf_char(&buf, '"');
                         }
                     }

@@ -327,6 +327,11 @@ static Value native_jobs_process(int argc, Value* args) {
     memcpy(handlers[handler_count].name, name->data, copy_len);
     handlers[handler_count].name[copy_len] = '\0';
     handlers[handler_count].closure = args[1];
+
+    // Pin the closure object so the GC does not collect it while
+    // it is referenced only from the static handlers array.
+    vm_pin((ObjHeader*)AS_PTR(args[1]));
+
     handler_count++;
 
     return VAL_TRUE;

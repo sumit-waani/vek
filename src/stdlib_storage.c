@@ -35,6 +35,25 @@ static void mkdirs(const char* path) {
     mkdir(tmp, 0755);
 }
 
+// Validate key: reject path traversal attempts
+static bool is_key_safe(const char* key) {
+    // Reject keys starting with '/'
+    if (key[0] == '/') return false;
+
+    // Reject keys containing ".." as a path component
+    const char* p = key;
+    while (*p) {
+        if (p[0] == '.' && p[1] == '.') {
+            // Check that ".." is a path component (at start, end, or between slashes)
+            bool at_start = (p == key) || (*(p - 1) == '/');
+            bool at_end = (p[2] == '\0') || (p[2] == '/');
+            if (at_start && at_end) return false;
+        }
+        p++;
+    }
+    return true;
+}
+
 // Build full file path for a key
 static void build_path(const char* key, char* out, size_t out_size) {
     snprintf(out, out_size, "%s/%s", storage_dir, key);
@@ -105,6 +124,8 @@ static Value native_storage_put(int argc, Value* args) {
     ObjString* key = AS_STRING(args[0]);
     ObjString* data = AS_STRING(args[1]);
 
+    if (!is_key_safe(key->data)) return VAL_NIL;
+
     char filepath[512];
     build_path(key->data, filepath, sizeof(filepath));
     ensure_parent_dir(filepath);
@@ -126,6 +147,8 @@ static Value native_storage_get(int argc, Value* args) {
     if (!IS_STRING(args[0])) return VAL_NIL;
 
     ObjString* key = AS_STRING(args[0]);
+
+    if (!is_key_safe(key->data)) return VAL_NIL;
 
     char filepath[512];
     build_path(key->data, filepath, sizeof(filepath));
@@ -168,6 +191,8 @@ static Value native_storage_delete(int argc, Value* args) {
 
     ObjString* key = AS_STRING(args[0]);
 
+    if (!is_key_safe(key->data)) return VAL_NIL;
+
     char filepath[512];
     build_path(key->data, filepath, sizeof(filepath));
 
@@ -183,6 +208,9 @@ static Value native_storage_url(int argc, Value* args) {
     if (!IS_STRING(args[0])) return VAL_NIL;
 
     ObjString* key = AS_STRING(args[0]);
+
+    if (!is_key_safe(key->data)) return VAL_NIL;
+
     int expires = 3600; // default 1 hour
     if (argc >= 2 && IS_INT(args[1])) {
         expires = (int)AS_INT(args[1]);

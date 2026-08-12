@@ -352,14 +352,18 @@ static void extract_config(Value config_val, ObjMap** extra_headers, int* timeou
     Value val;
 
     ObjString* k_timeout = obj_string_new("timeout", 7);
+    gc_push_root(OBJ_VAL(k_timeout));
     if (obj_map_get(config, k_timeout, &val) && IS_INT(val)) {
         *timeout = (int)AS_INT(val);
     }
 
     ObjString* k_headers = obj_string_new("headers", 7);
+    gc_push_root(OBJ_VAL(k_headers));
     if (obj_map_get(config, k_headers, &val) && IS_MAP(val)) {
         *extra_headers = AS_MAP(val);
     }
+    gc_pop_root(); // k_headers
+    gc_pop_root(); // k_timeout
 }
 
 // Build HTTP request string
