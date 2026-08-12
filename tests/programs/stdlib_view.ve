@@ -1,0 +1,92 @@
+# Test View DSL (html package)
+
+# Test simple tag with text content
+fn render_div_hello()
+  html.div("hello")
+end
+result = html.render_inline(render_div_hello)
+print(result)
+
+# Test HTML escaping
+fn render_escaped()
+  html.p("<script>alert('xss')</script>")
+end
+result = html.render_inline(render_escaped)
+print(result)
+
+# Test void elements
+fn render_voids()
+  html.br()
+  html.hr()
+end
+result = html.render_inline(render_voids)
+print(result)
+
+# Test nested tags with closure
+fn render_inner()
+  html.p("inner")
+end
+fn render_nested()
+  html.div(render_inner)
+end
+result = html.render_inline(render_nested)
+print(result)
+
+# Test raw() bypasses escaping
+fn render_raw()
+  html.raw("<b>bold</b>")
+end
+result = html.render_inline(render_raw)
+print(result)
+
+# Test doctype
+fn render_doctype()
+  html.doctype()
+end
+result = html.render_inline(render_doctype)
+print(result)
+
+# Test tag with attributes
+fn render_attrs()
+  html.a({href: "/home"}, "Go Home")
+end
+result = html.render_inline(render_attrs)
+print(result)
+
+# Test void element with attributes
+fn render_img()
+  html.img({src: "/logo.png", alt: "Logo"})
+end
+result = html.render_inline(render_img)
+print(result)
+
+# Test empty div
+fn render_empty_div()
+  html.div()
+end
+result = html.render_inline(render_empty_div)
+print(result)
+
+# Test text helper with escaping
+fn render_text_content()
+  html.text("Tom & Jerry")
+end
+fn render_text_in_div()
+  html.div(render_text_content)
+end
+result = html.render_inline(render_text_in_div)
+print(result)
+
+# Test h1 tag
+fn render_h1()
+  html.h1("Welcome")
+end
+result = html.render_inline(render_h1)
+print(result)
+
+# Test ampersand escaping in attributes
+fn render_amp_attr()
+  html.a({href: "/search?a=1&b=2"}, "Search")
+end
+result = html.render_inline(render_amp_attr)
+print(result)

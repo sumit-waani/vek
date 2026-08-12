@@ -65,4 +65,7 @@ void stdlib_init(void) {
 
     ObjMap* db_pkg = create_package("db");
     stdlib_db_init(db_pkg);
+
+    ObjMap* html_pkg = create_package("html");
+    stdlib_view_init(html_pkg);
 }
