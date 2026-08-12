@@ -2,7 +2,7 @@
   "id": "FEAT-004",
   "type": "fix",
   "description": "Address 8 security and correctness issues found during semantic code review: unsalted password hashing, deterministic encryption, admin account race condition, port counter reset, missing Secure cookie flag, disconnected supervisor check, orphan rows on app delete, and CDN dependency for htmx.",
-  "status": "in_progress",
+  "status": "completed",
   "steps": [
     "Replace unsalted SHA-256 password hashing with PBKDF2-SHA256 using a random salt and high iteration count",
     "Add random 16-byte nonce to crypto encrypt, prepend to ciphertext, adjust decrypt to strip nonce prefix",
@@ -28,5 +28,5 @@
     "Run 'build/test_vekd_db' and confirm all tests pass"
   ],
   "blocked_reason": null,
-  "findings": null
+  "findings": "All 8 issues fixed. PBKDF2-SHA256 with 100k iterations and random salt for passwords. 16-byte random nonce prepended to all ciphertext. Atomic INSERT for first-admin creation. Port derived from DB MAX(port). Secure flag added to session cookie. Supervisor check on 1-second repeating timer via event_loop_add_timer. Cascading deletes for env_vars/events/releases. htmx inlined as ~3KB minified JS string. Tests expanded from 16 to 19 (added nonce uniqueness, password hash/verify, unique salts). All pass."
 }
