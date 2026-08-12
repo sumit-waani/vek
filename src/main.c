@@ -102,6 +102,9 @@ int main(int argc, char* argv[]) {
         return 0;
     }
 
+    // Store CLI args before stdlib_init
+    cli_set_args(argc, argv);
+
     // Initialize subsystems
     gc_init();
     intern_table_init();

@@ -80,4 +80,55 @@ void stdlib_init(void) {
 
     ObjMap* pages_pkg = create_package("pages");
     stdlib_pages_init(pages_pkg);
+
+    ObjMap* auth_pkg = create_package("auth");
+    stdlib_auth_init(auth_pkg);
+
+    ObjMap* slug_pkg = create_package("slug");
+    stdlib_slug_init(slug_pkg);
+
+    ObjMap* csp_pkg = create_package("csp");
+    stdlib_csp_init(csp_pkg);
+
+    ObjMap* cors_pkg = create_package("cors");
+    stdlib_cors_init(cors_pkg);
+
+    ObjMap* i18n_pkg = create_package("i18n");
+    stdlib_i18n_init(i18n_pkg);
+
+    ObjMap* ratelimit_pkg = create_package("ratelimit");
+    stdlib_ratelimit_init(ratelimit_pkg);
+
+    ObjMap* markdown_pkg = create_package("markdown");
+    stdlib_markdown_init(markdown_pkg);
+
+    ObjMap* sanitize_pkg = create_package("sanitize");
+    stdlib_sanitize_init(sanitize_pkg);
+
+    ObjMap* webhook_pkg = create_package("webhook");
+    stdlib_webhook_init(webhook_pkg);
+
+    ObjMap* cli_pkg = create_package("cli");
+    stdlib_cli_init(cli_pkg);
+
+    ObjMap* compress_pkg = create_package("compress");
+    stdlib_compress_init(compress_pkg);
+
+    ObjMap* http_pkg = create_package("http");
+    stdlib_http_client_init(http_pkg);
+
+    ObjMap* mail_pkg = create_package("mail");
+    stdlib_mail_init(mail_pkg);
+
+    ObjMap* jobs_pkg = create_package("jobs");
+    stdlib_jobs_init(jobs_pkg);
+
+    ObjMap* storage_pkg = create_package("storage");
+    stdlib_storage_init(storage_pkg);
+
+    ObjMap* ws_pkg = create_package("ws");
+    stdlib_websocket_init(ws_pkg);
+
+    ObjMap* flash_pkg = create_package("flash");
+    stdlib_flash_init(flash_pkg);
 }

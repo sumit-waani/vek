@@ -26,6 +26,26 @@ void stdlib_session_init(ObjMap* pkg);
 void stdlib_csrf_init(ObjMap* pkg);
 void stdlib_form_init(ObjMap* pkg);
 void stdlib_pages_init(ObjMap* pkg);
+void stdlib_auth_init(ObjMap* pkg);
+void stdlib_slug_init(ObjMap* pkg);
+void stdlib_csp_init(ObjMap* pkg);
+void stdlib_cors_init(ObjMap* pkg);
+void stdlib_i18n_init(ObjMap* pkg);
+void stdlib_ratelimit_init(ObjMap* pkg);
+void stdlib_markdown_init(ObjMap* pkg);
+void stdlib_sanitize_init(ObjMap* pkg);
+void stdlib_webhook_init(ObjMap* pkg);
+void stdlib_cli_init(ObjMap* pkg);
+void stdlib_compress_init(ObjMap* pkg);
+void stdlib_http_client_init(ObjMap* pkg);
+void stdlib_mail_init(ObjMap* pkg);
+void stdlib_jobs_init(ObjMap* pkg);
+void stdlib_storage_init(ObjMap* pkg);
+void stdlib_websocket_init(ObjMap* pkg);
+void stdlib_flash_init(ObjMap* pkg);
+
+// cli.c needs this called from main to store argc/argv
+void cli_set_args(int argc, char** argv);
 
 // Helper: register a native function into a package map
 void stdlib_register(ObjMap* pkg, const char* name, NativeFn fn, int arity);

@@ -1,0 +1,12 @@
+<h1>Hello</h1>
+<h2>World</h2>
+<p>Just text</p>
+<p><strong>bold</strong></p>
+<p><em>italic</em></p>
+<p><code>code</code></p>
+<p><a href="http://example.com">click</a></p>
+<ul><li>one</li><li>two</li></ul>
+<ol><li>first</li><li>second</li></ol>
+<blockquote>quoted</blockquote>
+<hr>
+<h1>&lt;script&gt;</h1>

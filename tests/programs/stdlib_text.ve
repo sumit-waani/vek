@@ -1,0 +1,44 @@
+# Test sanitize, webhook, and cli packages
+
+# Test sanitize.strip
+print(sanitize.strip("<b>hello</b>"))
+
+# Test sanitize.strip with nested tags
+print(sanitize.strip("<div><p>text</p></div>"))
+
+# Test sanitize.strip with no tags
+print(sanitize.strip("plain text"))
+
+# Test cli.args returns a list
+args = cli.args()
+print(len(args) >= 0)
+
+# Test compress round-trip
+original = "Hello, World! This is a test."
+compressed = compress.gzip(original)
+decompressed = compress.gunzip(compressed)
+print(decompressed == original)
+
+# Test deflate/inflate round-trip
+d = compress.deflate("test data")
+print(compress.inflate(d))
+
+# Test compress.encode_response with gzip
+result = compress.encode_response("body content", "gzip, deflate")
+print(result["encoding"])
+
+# Test compress.encode_response without gzip
+result2 = compress.encode_response("body content", "identity")
+print(result2["encoding"])
+
+# Test webhook.verify with known HMAC
+sig = "f1f1fc517bb886ad22c56e51dae135aad082b2e3337bed35e2e44cd299324bd8"
+print(webhook.verify("test payload", sig, "secret"))
+
+# Test webhook.verify with wrong signature
+print(webhook.verify("test payload", "0000000000000000000000000000000000000000000000000000000000000000", "secret"))
+
+# Test webhook.verify_github
+gh_sig = "sha256=f1f1fc517bb886ad22c56e51dae135aad082b2e3337bed35e2e44cd299324bd8"
+print(webhook.verify_github("test payload", gh_sig, "secret"))
+
