@@ -429,14 +429,7 @@ static int cmd_shell(int argc, char** argv) {
 }
 
 static int cmd_migrate(int argc, char** argv) {
-    if (cli_has_flag(argc, argv, "--help")) {
-        printf("Usage: vek migrate [options]\n");
-        printf("\n");
-        printf("Run database migrations.\n");
-        return 0;
-    }
-    printf("vek migrate: not yet implemented\n");
-    return 0;
+    return cmd_migrate_run(argc, argv);
 }
 
 static int cmd_test(int argc, char** argv) {
