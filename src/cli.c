@@ -433,14 +433,7 @@ static int cmd_migrate(int argc, char** argv) {
 }
 
 static int cmd_test(int argc, char** argv) {
-    if (cli_has_flag(argc, argv, "--help")) {
-        printf("Usage: vek test [files...]\n");
-        printf("\n");
-        printf("Run test files.\n");
-        return 0;
-    }
-    printf("vek test: not yet implemented\n");
-    return 0;
+    return cmd_test_run(argc, argv);
 }
 
 // ---- Command registry ----

@@ -131,4 +131,7 @@ void stdlib_init(void) {
 
     ObjMap* flash_pkg = create_package("flash");
     stdlib_flash_init(flash_pkg);
+
+    ObjMap* test_pkg = create_package("test");
+    stdlib_test_init(test_pkg);
 }

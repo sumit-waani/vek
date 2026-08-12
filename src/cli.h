@@ -45,5 +45,6 @@ int cmd_fmt_run(int argc, char** argv);
 int cmd_repl_run(int argc, char** argv);
 int cmd_shell_run(int argc, char** argv);
 int cmd_migrate_run(int argc, char** argv);
+int cmd_test_run(int argc, char** argv);
 
 #endif // VEK_CLI_H
