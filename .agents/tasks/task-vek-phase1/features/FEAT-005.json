@@ -1,0 +1,38 @@
+{
+  "id": "FEAT-005",
+  "type": "feat",
+  "description": "Implement the register-based VM with computed GOTO dispatch, NaN-boxed values, call frames, and built-in operations on strings/lists/maps. Wire everything together so 'vek run file.ve' executes a program end-to-end.",
+  "status": "completed",
+  "steps": [
+    "Create /projects/sandbox/vek/src/vm.h and /projects/sandbox/vek/src/vm.c implementing the VM per design doc section 12: VM struct with CallFrame array (max 256 frames), register array (Value regs[65536]), globals table (ObjMap), open upvalues list, GC roots. CallFrame has closure, ip, regs pointer, reg_count. Implement vm_init, vm_free, vm_interpret (takes source string, compiles and runs), vm_run (the dispatch loop).",
+    "Implement the computed GOTO dispatch loop (section 12.3): static dispatch table array of label addresses, DISPATCH macro using goto *dispatch[op]. Implement handlers for all core opcodes: OP_NOP, OP_HALT, OP_MOVE, OP_LOAD_CONST, OP_LOAD_NIL/TRUE/FALSE, OP_LOAD_INT, OP_LOAD_GLOBAL/OP_STORE_GLOBAL, OP_GET_LOCAL/OP_SET_LOCAL, OP_ADD/SUB/MUL/DIV/MOD (with int/float dispatch per section 12.2 - int/int division returns float per section 30 Q1), OP_NEG, OP_EQ/NEQ/LT/LTE/GT/GTE, OP_NOT, OP_JUMP/JUMP_IF_FALSE/JUMP_IF_TRUE, OP_CALL (check is_builtin flag for native functions), OP_TAILCALL, OP_RETURN, OP_CLOSURE/GET_UPVALUE/SET_UPVALUE/CLOSE_UPVALUE.",
+    "Implement collection opcodes: OP_NEW_LIST (allocate ObjList, populate from registers), OP_NEW_MAP (allocate ObjMap, populate key-value pairs from registers), OP_GET_FIELD (lookup field on object or call method), OP_SET_FIELD, OP_GET_INDEX (list[i] or map[k]), OP_SET_INDEX, OP_ITER_NEW (create iterator for list/map/range), OP_ITER_NEXT (advance iterator, jump if done).",
+    "Implement error handling opcodes: OP_THROW (raise), OP_PUSH_HANDLER (register rescue handler with jump offset), OP_POP_HANDLER (remove handler on normal exit). On throw, walk the handler stack to find the nearest rescue block and jump there, or propagate to the top level with a runtime error message.",
+    "Implement built-in functions for core types: print/puts (output to stdout), type_of (return type name as string), to_s/to_i/to_f (conversions). String methods: length, upper, lower, trim, contains, split, replace, starts_with, ends_with, slice, index_of. List methods: length, push, pop, first, last, map, filter, each, join, contains, reverse, sort. Map methods: length, keys, values, has, get, set, delete, each.",
+    "Update /projects/sandbox/vek/src/main.c to support: './vek run <file.ve>' (read file, compile, execute), './vek --version', './vek repl' (basic read-eval-print loop). The 'run' command reads the file, passes to vm_interpret which compiles and runs it.",
+    "Create integration test programs in /projects/sandbox/vek/tests/programs/: hello.ve (print 'Hello, vek!'), arithmetic.ve (test int/float operations including int/int -> float), variables.ve (local/global variables, constants), control_flow.ve (if/elsif/else, while, for..in with lists), functions.ve (fn declaration, closures, recursion with factorial), strings.ve (interpolation, methods), collections.ve (list/map creation, iteration, methods), errors.ve (raise/rescue). Each file should produce expected output that the test harness verifies.",
+    "Create /projects/sandbox/vek/tests/run_tests.sh that compiles vek, runs each test program, and compares output to expected results (stored as .expected files alongside each .ve file). Return exit code 0 if all pass, 1 if any fail. Wire this into 'make test'."
+  ],
+  "acceptance_criteria": [
+    "VM dispatch loop uses computed GOTO on GCC/Clang",
+    "Arithmetic works correctly: 2 + 3 = 5 (int), 2 + 3.0 = 5.0 (float), 7 / 2 = 3.5 (int division returns float)",
+    "Variables work: local assignment, global access, constants",
+    "Control flow works: if/else branching, while loops, for..in iteration over lists",
+    "Functions work: declaration, calling, recursion, closures capturing variables",
+    "String operations work: interpolation, .length, .upper, .lower, .split",
+    "List operations work: creation, push/pop, iteration with for..in, .map/.filter",
+    "Map operations work: creation, field access, iteration",
+    "Error handling works: raise produces error, rescue catches it",
+    "REPL mode works: can type expressions and see results",
+    "'vek run hello.ve' produces 'Hello, vek!' output",
+    "All integration tests pass via 'make test'"
+  ],
+  "verification": [
+    "Run 'make' and confirm clean build",
+    "Run './build/vek --version' and confirm version output",
+    "Run './build/vek run tests/programs/hello.ve' and confirm 'Hello, vek!' output",
+    "Run 'make test' and confirm all unit and integration tests pass"
+  ],
+  "blocked_reason": null,
+  "findings": "Fixed several compiler bugs during VM integration: (1) if/elsif/else jump patching was premature - needed to collect all exit jumps and patch at end. (2) Local variable creation pattern changed - values stay on stack as slots without explicit SET_LOCAL+POP. (3) Global assignment in expression_statement uses SET_GLOBAL (peeks) not DEFINE_GLOBAL (pops) to avoid double-pop. (4) for-loop needed NIL placeholder push for loop variable slot alignment. (5) Method call dot() needed GET_FIELD before arguments not after. (6) debug.c output moved to stderr so integration tests work in debug builds. Added ObjUpvalue, ObjNative, ObjBoundMethod types. begin/rescue/raise not yet implemented in compiler (opcodes defined but not emitted)."
+}

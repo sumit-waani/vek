@@ -1,6 +1,7 @@
 #include "gc.h"
 #include "memory.h"
 #include "object.h"
+#include "vm.h"
 
 // Global GC state
 GC gc = {0};
@@ -104,9 +105,21 @@ static void gc_trace_object(ObjHeader* obj) {
     switch (obj->type) {
         case OBJ_STRING:
         case OBJ_BYTES:
-        case OBJ_FUNCTION:
             // Leaf objects: no outgoing heap references
             break;
+
+        case OBJ_FUNCTION: {
+            ObjFunction* function = (ObjFunction*)obj;
+            // Trace the function name string
+            if (function->name) {
+                gc_mark_object((ObjHeader*)function->name);
+            }
+            // Trace all values in the constant pool
+            for (int i = 0; i < function->chunk.const_count; i++) {
+                gc_mark_value(function->chunk.constants[i]);
+            }
+            break;
+        }
 
         case OBJ_LIST: {
             ObjList* list = (ObjList*)obj;
@@ -119,7 +132,7 @@ static void gc_trace_object(ObjHeader* obj) {
         case OBJ_MAP: {
             ObjMap* map = (ObjMap*)obj;
             for (uint32_t i = 0; i < map->capacity; i++) {
-                if (map->entries[i].key != NULL) {
+                if (map->entries[i].key != NULL && map->entries[i].key != MAP_TOMBSTONE) {
                     gc_mark_object((ObjHeader*)map->entries[i].key);
                     gc_mark_value(map->entries[i].value);
                 }
@@ -137,9 +150,9 @@ static void gc_trace_object(ObjHeader* obj) {
         }
 
         case OBJ_UPVALUE: {
-            // Mark the closed-over value
-            // We need to include vm.h for this but ObjUpvalue is defined there.
-            // For now, the upvalue's closed value is marked via its Value stored in closure.
+            // Trace the closed-over value (after closing, this is the sole owner)
+            ObjUpvalue* upvalue = (ObjUpvalue*)obj;
+            gc_mark_value(upvalue->closed);
             break;
         }
 
@@ -147,9 +160,12 @@ static void gc_trace_object(ObjHeader* obj) {
             // Leaf object
             break;
 
-        case OBJ_BOUND_METHOD:
-            // Bound method has a receiver value that may be a heap object
+        case OBJ_BOUND_METHOD: {
+            // Trace the receiver value (may be a heap object)
+            ObjBoundMethod* bound = (ObjBoundMethod*)obj;
+            gc_mark_value(bound->receiver);
             break;
+        }
     }
 }
 

@@ -58,6 +58,9 @@ typedef struct {
     Value      value;
 } MapEntry;
 
+// Tombstone sentinel: a deleted entry that preserves probe chains
+extern ObjString* MAP_TOMBSTONE;
+
 struct ObjMap {
     ObjHeader header;
     uint32_t  length;    // number of live entries

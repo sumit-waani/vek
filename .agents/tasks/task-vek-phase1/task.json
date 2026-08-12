@@ -1,0 +1,14 @@
+{
+  "task_id": "task-vek-phase1",
+  "task_description": "Create documentation and implement Phase 1 of the vek language: core runtime including lexer, parser/compiler, register-based VM with NaN-boxing and computed GOTO dispatch, mark-and-sweep GC, and basic type operations (strings, lists, maps). End result: a working 'vek run file.ve' command that can execute basic vek programs.",
+  "status": "completed",
+  "feature_order": ["FEAT-001", "FEAT-002", "FEAT-003", "FEAT-004", "FEAT-005"],
+  "blocked_reason": null,
+  "verification": {
+    "build": "pass",
+    "tests": "pass",
+    "test_quality": "pass",
+    "docker_build": "skipped",
+    "summary": "Build succeeds (99 warnings are all from intentional computed GOTO GNU extension in vm.c - expected per design doc section 12.3). All 99 unit tests pass (24 value, 18 object, 6 GC, 31 lexer, 20 compiler). All 8 integration tests pass (hello, arithmetic, variables, control_flow, functions, strings, collections, errors). Tests exercise real code paths: closures with captured variables, recursive factorial, list/map methods, string operations, error handling."
+  }
+}

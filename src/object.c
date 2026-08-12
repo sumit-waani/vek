@@ -4,6 +4,10 @@
 #include "chunk.h"
 #include "vm.h"
 
+// Tombstone sentinel for map deletion (non-NULL pointer that is never a valid string)
+static ObjString MAP_TOMBSTONE_STORAGE;
+ObjString* MAP_TOMBSTONE = &MAP_TOMBSTONE_STORAGE;
+
 // ---- String Interning Table ----
 
 InternTable intern_table = {0};
@@ -188,11 +192,11 @@ static void map_grow(ObjMap* map) {
     MapEntry* new_entries = (MapEntry*)vek_alloc(sizeof(MapEntry) * new_cap);
     memset(new_entries, 0, sizeof(MapEntry) * new_cap);
 
-    // Rehash existing entries
+    // Rehash existing entries (skip tombstones - they are cleaned up during grow)
     if (map->entries) {
         for (uint32_t i = 0; i < map->capacity; i++) {
             MapEntry* entry = &map->entries[i];
-            if (entry->key == NULL) continue;
+            if (entry->key == NULL || entry->key == MAP_TOMBSTONE) continue;
 
             uint32_t idx = entry->key->hash & (new_cap - 1);
             while (new_entries[idx].key != NULL) {
@@ -215,16 +219,27 @@ bool obj_map_set(ObjMap* map, ObjString* key, Value value) {
     }
 
     uint32_t index = key->hash & (map->capacity - 1);
+    MapEntry* tombstone_slot = NULL;
     for (;;) {
         MapEntry* entry = &map->entries[index];
         if (entry->key == NULL) {
-            // Empty slot - insert new entry
-            entry->key = key;
-            entry->value = value;
+            // Empty slot - use tombstone slot if we found one, otherwise this slot
+            if (tombstone_slot != NULL) {
+                tombstone_slot->key = key;
+                tombstone_slot->value = value;
+            } else {
+                entry->key = key;
+                entry->value = value;
+            }
             map->length++;
             return true;
         }
-        if (entry->key == key) {
+        if (entry->key == MAP_TOMBSTONE) {
+            // Remember the first tombstone for potential reuse
+            if (tombstone_slot == NULL) {
+                tombstone_slot = entry;
+            }
+        } else if (entry->key == key) {
             // Same interned string - update value
             entry->value = value;
             return false;
@@ -243,6 +258,11 @@ bool obj_map_get(ObjMap* map, ObjString* key, Value* value) {
         if (entry->key == NULL) {
             return false;
         }
+        if (entry->key == MAP_TOMBSTONE) {
+            // Tombstone: continue probing
+            index = (index + 1) & (map->capacity - 1);
+            continue;
+        }
         if (entry->key == key) {
             *value = entry->value;
             return true;
@@ -252,7 +272,7 @@ bool obj_map_get(ObjMap* map, ObjString* key, Value* value) {
 }
 
 // Delete a key from the map. Returns true if found and deleted.
-// Uses tombstone approach (set key to NULL but don't break probe chain).
+// Uses tombstone sentinel to preserve probe chains.
 bool obj_map_delete(ObjMap* map, ObjString* key) {
     if (map->capacity == 0) return false;
 
@@ -262,10 +282,14 @@ bool obj_map_delete(ObjMap* map, ObjString* key) {
         if (entry->key == NULL) {
             return false;
         }
+        if (entry->key == MAP_TOMBSTONE) {
+            // Continue probing past tombstones
+            index = (index + 1) & (map->capacity - 1);
+            continue;
+        }
         if (entry->key == key) {
-            // Tombstone: clear the key but leave a marker
-            // For simplicity in v1, we just NULL the key and decrement length
-            entry->key = NULL;
+            // Replace with tombstone to preserve probe chain
+            entry->key = MAP_TOMBSTONE;
             entry->value = VAL_NIL;
             map->length--;
             return true;

@@ -31,6 +31,7 @@ static bool call_closure(ObjClosure* closure, int arg_count);
 static ObjUpvalue* capture_upvalue(Value* local);
 static void close_upvalues(Value* last);
 static ObjString* value_to_string(Value value);
+static ObjString* value_to_string_depth(Value value, int depth);
 
 // ---- Native function implementations ----
 
@@ -157,6 +158,11 @@ void vm_free(void) {
 // ---- Stack operations ----
 
 void vm_push(Value value) {
+    if (vm.stack_top >= vm.stack + STACK_MAX) {
+        fprintf(stderr, "Runtime error: Stack overflow.\n");
+        vm.had_error = true;
+        return;
+    }
     *vm.stack_top = value;
     vm.stack_top++;
 }
@@ -190,11 +196,18 @@ static void define_native(const char* name, NativeFn function, int arity) {
 
 // ---- Helper: convert value to string ----
 
-static ObjString* value_to_string(Value value) {
+#define VALUE_TO_STRING_MAX_DEPTH 16
+
+static ObjString* value_to_string_depth(Value value, int depth) {
     if (IS_STRING(value)) return AS_STRING(value);
 
     char buffer[256];
     int len = 0;
+
+    if (depth > VALUE_TO_STRING_MAX_DEPTH) {
+        len = snprintf(buffer, sizeof(buffer), "...");
+        return obj_string_new(buffer, (uint32_t)len);
+    }
 
     if (IS_NIL(value)) {
         len = snprintf(buffer, sizeof(buffer), "nil");
@@ -245,7 +258,7 @@ static ObjString* value_to_string(Value value) {
                 len = snprintf(buffer, sizeof(buffer), "[");
                 for (uint32_t i = 0; i < list->length && len < 240; i++) {
                     if (i > 0) len += snprintf(buffer + len, sizeof(buffer) - (size_t)len, ", ");
-                    ObjString* elem = value_to_string(list->data[i]);
+                    ObjString* elem = value_to_string_depth(list->data[i], depth + 1);
                     if (IS_STRING(list->data[i])) {
                         len += snprintf(buffer + len, sizeof(buffer) - (size_t)len,
                                        "\"%.*s\"", (int)elem->length, elem->data);
@@ -262,13 +275,13 @@ static ObjString* value_to_string(Value value) {
                 len = snprintf(buffer, sizeof(buffer), "{");
                 bool first = true;
                 for (uint32_t i = 0; i < map->capacity && len < 240; i++) {
-                    if (map->entries[i].key == NULL) continue;
+                    if (map->entries[i].key == NULL || map->entries[i].key == MAP_TOMBSTONE) continue;
                     if (!first) len += snprintf(buffer + len, sizeof(buffer) - (size_t)len, ", ");
                     first = false;
                     len += snprintf(buffer + len, sizeof(buffer) - (size_t)len,
                                    "%.*s: ", (int)map->entries[i].key->length,
                                    map->entries[i].key->data);
-                    ObjString* val = value_to_string(map->entries[i].value);
+                    ObjString* val = value_to_string_depth(map->entries[i].value, depth + 1);
                     len += snprintf(buffer + len, sizeof(buffer) - (size_t)len,
                                    "%.*s", (int)val->length, val->data);
                 }
@@ -284,6 +297,10 @@ static ObjString* value_to_string(Value value) {
     }
 
     return obj_string_new(buffer, (uint32_t)len);
+}
+
+static ObjString* value_to_string(Value value) {
+    return value_to_string_depth(value, 0);
 }
 
 // ---- Runtime errors ----
@@ -477,7 +494,7 @@ static bool iterator_next(Value iter_val, Value* out) {
         ObjMap* map = AS_MAP(collection);
         // Iterate through map entries
         while (index < (int64_t)map->capacity) {
-            if (map->entries[index].key != NULL) {
+            if (map->entries[index].key != NULL && map->entries[index].key != MAP_TOMBSTONE) {
                 *out = OBJ_VAL(map->entries[index].key);
                 iter->data[1] = INT_VAL(index + 1);
                 return true;
@@ -873,7 +890,7 @@ static bool map_method(ObjMap* map, ObjString* method_name, Value* result) {
         ObjList* keys = obj_list_new();
         gc_push_root(OBJ_VAL(keys));
         for (uint32_t i = 0; i < map->capacity; i++) {
-            if (map->entries[i].key != NULL) {
+            if (map->entries[i].key != NULL && map->entries[i].key != MAP_TOMBSTONE) {
                 obj_list_push(keys, OBJ_VAL(map->entries[i].key));
             }
         }
@@ -885,7 +902,7 @@ static bool map_method(ObjMap* map, ObjString* method_name, Value* result) {
         ObjList* values = obj_list_new();
         gc_push_root(OBJ_VAL(values));
         for (uint32_t i = 0; i < map->capacity; i++) {
-            if (map->entries[i].key != NULL) {
+            if (map->entries[i].key != NULL && map->entries[i].key != MAP_TOMBSTONE) {
                 obj_list_push(values, map->entries[i].value);
             }
         }
@@ -1295,7 +1312,9 @@ static InterpretResult run(void) {
     {
         Value b = vm_pop(); Value a = vm_pop();
         if (!IS_INT(a) || !IS_INT(b)) { runtime_error("Shift operations require integers."); return INTERPRET_RUNTIME_ERROR; }
-        vm_push(INT_VAL(AS_INT(a) << AS_INT(b)));
+        int64_t shift = AS_INT(b);
+        if (shift < 0 || shift >= 64) { runtime_error("Shift count must be between 0 and 63."); return INTERPRET_RUNTIME_ERROR; }
+        vm_push(INT_VAL(AS_INT(a) << shift));
         DISPATCH();
     }
 
@@ -1307,7 +1326,9 @@ static InterpretResult run(void) {
     {
         Value b = vm_pop(); Value a = vm_pop();
         if (!IS_INT(a) || !IS_INT(b)) { runtime_error("Shift operations require integers."); return INTERPRET_RUNTIME_ERROR; }
-        vm_push(INT_VAL(AS_INT(a) >> AS_INT(b)));
+        int64_t shift = AS_INT(b);
+        if (shift < 0 || shift >= 64) { runtime_error("Shift count must be between 0 and 63."); return INTERPRET_RUNTIME_ERROR; }
+        vm_push(INT_VAL(AS_INT(a) >> shift));
         DISPATCH();
     }
 
