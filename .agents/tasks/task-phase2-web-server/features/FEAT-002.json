@@ -2,7 +2,7 @@
   "id": "FEAT-002",
   "type": "feat",
   "description": "Event loop and TCP listener using epoll (Linux). Implement a non-blocking event loop that can accept TCP connections, read/write data, and manage timers. This is the foundation for the HTTP server. For Phase 2 sub-phase 1, we use a single-threaded event loop (no fibers yet) - each connection is handled to completion before the next. This is sufficient for a working HTTP server and can be upgraded to fibers later.",
-  "status": "in_progress",
+  "status": "completed",
   "steps": [
     "Create src/event_loop.h - define the EventLoop struct containing: epoll fd, a list of active connections (fd + state + read buffer + write buffer), a timer list, running flag. Define connection states: CONN_READING, CONN_WRITING, CONN_CLOSED. Define callback types for on_accept, on_data, on_write_done.",
     "Create src/event_loop.c - implement: event_loop_init() creates epoll fd, event_loop_run() calls epoll_wait in a loop, event_loop_stop() sets running=false. Implement event_loop_listen(port, on_accept_cb) that creates a non-blocking listening socket (SO_REUSEADDR, SO_REUSEPORT), binds, listens, and registers with epoll for EPOLLIN.",
@@ -24,5 +24,5 @@
     "make test"
   ],
   "blocked_reason": null,
-  "findings": ""
+  "findings": "1. Need _GNU_SOURCE defined at top of event_loop.c for SO_REUSEPORT, CLOCK_MONOTONIC, and timerfd. 2. Tests need _GNU_SOURCE for usleep(). 3. The Makefile test rule does not need -lpthread since we use fork() instead of threads. 4. EpollData structs are heap-allocated to tag fd types (listener/connection/timer) in epoll_event.data.ptr. 5. Timer is one-shot and self-removes after firing."
 }
