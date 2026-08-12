@@ -179,11 +179,18 @@ static int cmd_build(int argc, char** argv) {
     if (cli_has_flag(argc, argv, "--help")) {
         printf("Usage: vek build [options]\n");
         printf("\n");
-        printf("Build .vebc artifact for deployment.\n");
+        printf("Compile all .ve source files and package into a .vebc binary artifact.\n");
+        printf("\n");
+        printf("Options:\n");
+        printf("  --output=<path>   Output file path (default: build/<appname>.vebc)\n");
+        printf("  -o <path>         Short form of --output\n");
+        printf("  --help            Show this help message\n");
+        printf("\n");
+        printf("Compiles app.ve and all .ve files in routes/, embeds public/ assets,\n");
+        printf("and produces a single .vebc binary for deployment.\n");
         return 0;
     }
-    printf("vek build: not yet implemented\n");
-    return 0;
+    return cmd_build_run(argc, argv);
 }
 
 static int cmd_fmt(int argc, char** argv) {
