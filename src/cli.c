@@ -132,13 +132,30 @@ static int cmd_repl(int argc, char** argv) {
 
 static int cmd_new(int argc, char** argv) {
     if (cli_has_flag(argc, argv, "--help")) {
-        printf("Usage: vek new <project-name>\n");
+        printf("Usage: vek new <project-name> [options]\n");
         printf("\n");
-        printf("Create a new vek project.\n");
+        printf("Create a new vek project with the standard directory structure.\n");
+        printf("\n");
+        printf("Arguments:\n");
+        printf("  <project-name>    Name or path for the new project\n");
+        printf("\n");
+        printf("Options:\n");
+        printf("  --no-prompt       Skip interactive prompts (fail if dir exists)\n");
+        printf("  --help            Show this help message\n");
+        printf("\n");
+        printf("Creates:\n");
+        printf("  <project-name>/\n");
+        printf("    app.ve              Main entry point\n");
+        printf("    routes/index.ve     Route definitions\n");
+        printf("    views/index.ve      View templates\n");
+        printf("    views/layouts/      Layout templates\n");
+        printf("    public/css/         Static CSS files\n");
+        printf("    public/js/          Static JS files\n");
+        printf("    migrations/         Database migrations\n");
+        printf("    config/app.ve       Application config\n");
         return 0;
     }
-    printf("vek new: not yet implemented\n");
-    return 0;
+    return cmd_new_run(argc, argv);
 }
 
 static int cmd_dev(int argc, char** argv) {

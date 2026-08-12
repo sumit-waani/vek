@@ -37,4 +37,7 @@ void cli_print_help(void);
 // Dispatch command based on argv[1]
 int cli_dispatch(int argc, char** argv);
 
+// Command implementations in separate files
+int cmd_new_run(int argc, char** argv);
+
 #endif // VEK_CLI_H
