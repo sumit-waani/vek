@@ -2,7 +2,7 @@
   "id": "FEAT-004",
   "type": "feat",
   "description": "Additional core stdlib packages (path, uuid, kv, cache) and end-to-end integration test demonstrating a working web application that uses routing, JSON responses, environment variables, logging, and basic state management via kv store.",
-  "status": "in_progress",
+  "status": "completed",
   "steps": [
     "Implement the 'path' package in src/stdlib_path.c: path.join(parts...) joins URL path segments with '/', path.normalize(p) removes double slashes and trailing slash, path.basename(p) returns last segment, path.dirname(p) returns parent path",
     "Implement the 'uuid' package in src/stdlib_uuid.c: uuid.v4() generates a random UUID v4 string (using /dev/urandom for random bytes, formatting as 8-4-4-4-12 hex with version/variant bits set correctly)",
@@ -26,5 +26,5 @@
     "make test"
   ],
   "blocked_reason": null,
-  "findings": ""
+  "findings": "All 4 stdlib packages implemented and registered. Build produces only pre-existing vm.c GNU extension warnings. The kv_store and cache_store use pinned ObjMaps that persist across requests. The web_app_demo.ve test program is correctly skipped by the integration test runner (no .expected file) and exercised via the dedicated test_web_app.sh shell test instead. 20 test scenarios all pass covering: HTML responses, JSON APIs, UUID generation validation, path utilities, KV store CRUD with state persistence, and 404 handling."
 }
