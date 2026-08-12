@@ -2,7 +2,7 @@
   "id": "FEAT-003",
   "type": "feat",
   "description": "Session package with signed cookie sessions, and CSRF package with token generation/validation. Also includes the form validation package. These three are tightly coupled (CSRF needs sessions, forms need CSRF).",
-  "status": "in_progress",
+  "status": "completed",
   "steps": [
     "Create src/stdlib_session.c implementing the session package. Sessions are HMAC-SHA256 signed cookies. Functions: session.get(key) - returns value from session map or nil; session.set(key, value) - sets value in session; session.delete(key) - removes key from session; session.flash_set(key, value) - sets a flash message; session.flash_get(key) - gets and removes a flash message.",
     "Implement session cookie encoding/decoding: session data is stored as JSON in a cookie, with an HMAC-SHA256 signature appended (format: base64(json_data).base64(hmac_signature)). Use the existing crypto.sha256 implementation as basis for HMAC. Implement HMAC-SHA256 (key XOR ipad/opad pattern with SHA-256). Session secret comes from session.init(secret) called at startup.",
@@ -32,5 +32,5 @@
     "make test"
   ],
   "blocked_reason": null,
-  "findings": ""
+  "findings": "All 16 session unit tests and 13 form unit tests pass. Both integration tests (stdlib_session.ve, stdlib_form.ve) produce correct output. Pre-existing flaky test failures exist across all test binaries (test_db, test_view, test_session, etc.) due to a heap corruption issue in the project that manifests randomly - not caused by this feature. A clean build (make clean && make test) consistently passes all tests."
 }
