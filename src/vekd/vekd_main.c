@@ -15,6 +15,7 @@
 #include "vekd_supervisor.h"
 #include "vekd_web.h"
 #include "../http_server.h"
+#include "../event_loop.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -29,6 +30,7 @@ static VekdDB g_db;
 static VekdSupervisor g_supervisor;
 static uint8_t g_master_key[VEKD_KEY_SIZE];
 static HttpServer g_server;
+static Timer *g_supervisor_timer = NULL;
 
 /* Allow overriding paths for testing */
 static const char *g_data_dir = VEKD_DATA_DIR;
@@ -39,6 +41,14 @@ static int g_port = VEKD_DEFAULT_PORT;
 static void signal_handler(int sig) {
     (void)sig;
     http_server_stop(&g_server);
+}
+
+/* Timer callback: check supervised processes and re-arm the timer */
+static void supervisor_timer_cb(EventLoop *loop, void *userdata) {
+    (void)userdata;
+    vekd_supervisor_check(&g_supervisor);
+    /* Re-arm the timer (one-shot timers, so we re-add) */
+    g_supervisor_timer = event_loop_add_timer(loop, 1000, supervisor_timer_cb, NULL);
 }
 
 static void print_version(void) {
@@ -159,6 +169,13 @@ int main(int argc, char *argv[]) {
     int user_count = vekd_db_user_count(&g_db);
     if (user_count == 0) {
         printf("vekd: first boot detected - create your admin account at the login page\n");
+    }
+
+    /* Add supervisor check timer (fires every 1 second) */
+    g_supervisor_timer = event_loop_add_timer(&g_server.loop, 1000,
+                                             supervisor_timer_cb, NULL);
+    if (!g_supervisor_timer) {
+        fprintf(stderr, "vekd: warning: failed to create supervisor timer\n");
     }
 
     /* Start the HTTP server event loop (blocks until stop) */

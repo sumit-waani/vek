@@ -2,7 +2,7 @@
  * vekd_templates.c - Server-side HTML rendering for the vekd web dashboard.
  *
  * All pages are rendered as C string building with embedded htmx attributes.
- * CSS is inlined in the layout for zero external dependencies (except htmx CDN).
+ * CSS is inlined in the layout for zero external dependencies.
  */
 #include "vekd_templates.h"
 #include "vekd_config.h"
@@ -144,6 +144,103 @@ static const char *CSS =
     ".htmx-request .htmx-indicator { opacity: 1; }"
     "</style>";
 
+/* ---- Inline htmx (minimal implementation) ---- */
+
+static const char *HTMX_INLINE =
+    "/*htmx-mini*/"
+    "(function(){"
+    "var htmx={};"
+    "function qsa(s,r){return(r||document).querySelectorAll(s);}"
+    "function qs(s,r){return(r||document).querySelector(s);}"
+    "function ajax(m,u,b,cb){"
+    "  var x=new XMLHttpRequest();"
+    "  x.open(m,u,true);"
+    "  x.setRequestHeader('HX-Request','true');"
+    "  if(b)x.setRequestHeader('Content-Type','application/x-www-form-urlencoded');"
+    "  x.onload=function(){"
+    "    var redir=x.getResponseHeader('HX-Redirect');"
+    "    if(redir){window.location=redir;return;}"
+    "    cb(x.responseText,x.status);"
+    "  };"
+    "  x.send(b||null);"
+    "}"
+    "function getFormData(el){"
+    "  var form=el.closest('form');"
+    "  if(!form)return null;"
+    "  var fd=new FormData(form);"
+    "  var parts=[];"
+    "  fd.forEach(function(v,k){parts.push(encodeURIComponent(k)+'='+encodeURIComponent(v));});"
+    "  return parts.join('&');"
+    "}"
+    "function getTarget(el){"
+    "  var t=el.getAttribute('hx-target');"
+    "  if(t)return qs(t);"
+    "  return el;"
+    "}"
+    "function doSwap(target,html,mode){"
+    "  if(!target)return;"
+    "  if(mode==='none')return;"
+    "  if(mode==='innerHTML'||!mode){target.innerHTML=html;}"
+    "  else if(mode==='outerHTML'){target.outerHTML=html;}"
+    "  process(target);"
+    "}"
+    "function trigger(el){"
+    "  var method=null,url=null;"
+    "  if(el.hasAttribute('hx-get')){method='GET';url=el.getAttribute('hx-get');}"
+    "  else if(el.hasAttribute('hx-post')){method='POST';url=el.getAttribute('hx-post');}"
+    "  else if(el.hasAttribute('hx-delete')){method='DELETE';url=el.getAttribute('hx-delete');}"
+    "  if(!method)return;"
+    "  var confirm=el.getAttribute('hx-confirm');"
+    "  if(confirm&&!window.confirm(confirm))return;"
+    "  var swap=el.getAttribute('hx-swap')||'innerHTML';"
+    "  var target=getTarget(el);"
+    "  var body=null;"
+    "  if(method==='POST'){body=getFormData(el);}"
+    "  el.classList.add('htmx-request');"
+    "  ajax(method,url,body,function(html){"
+    "    el.classList.remove('htmx-request');"
+    "    doSwap(target,html,swap);"
+    "  });"
+    "}"
+    "function process(root){"
+    "  var els=qsa('[hx-get],[hx-post],[hx-delete]',root);"
+    "  for(var i=0;i<els.length;i++){"
+    "    var el=els[i];"
+    "    if(el._htmx)continue;"
+    "    el._htmx=true;"
+    "    var trig=el.getAttribute('hx-trigger')||'click';"
+    "    if(trig.indexOf('every ')===0){"
+    "      (function(e,ms){"
+    "        setInterval(function(){trigger(e);},ms);"
+    "      })(el,parseInt(trig.replace('every ','').replace('s',''))*1000);"
+    "    }else if(trig==='load'){"
+    "      (function(e){setTimeout(function(){trigger(e);},0);})(el);"
+    "    }else if(trig.indexOf('load,')===0){"
+    "      (function(e,rest){"
+    "        setTimeout(function(){trigger(e);},0);"
+    "        var parts=rest.split(',');"
+    "        for(var j=0;j<parts.length;j++){"
+    "          var p=parts[j].trim();"
+    "          if(p.indexOf('every ')===0){"
+    "            var ms=parseInt(p.replace('every ','').replace('s',''))*1000;"
+    "            setInterval(function(){trigger(e);},ms);"
+    "          }"
+    "        }"
+    "      })(el,trig.substring(5));"
+    "    }else if(trig==='submit'){"
+    "      el.addEventListener('submit',function(ev){ev.preventDefault();trigger(this);});"
+    "    }else{"
+    "      el.addEventListener(trig,function(ev){"
+    "        if(this.tagName==='FORM')ev.preventDefault();"
+    "        trigger(this);"
+    "      });"
+    "    }"
+    "  }"
+    "}"
+    "document.addEventListener('DOMContentLoaded',function(){process(document);});"
+    "window.htmx=htmx;"
+    "})();";
+
 /* ---- Layout ---- */
 
 void vekd_tpl_layout(VekdBuf *buf, const char *title, const char *content,
@@ -153,7 +250,9 @@ void vekd_tpl_layout(VekdBuf *buf, const char *title, const char *content,
     vekd_buf_append(buf, "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">");
     vekd_buf_printf(buf, "<title>%s - vekd</title>", title);
     vekd_buf_append(buf, CSS);
-    vekd_buf_append(buf, "<script src=\"https://unpkg.com/htmx.org@2.0.4\"></script>");
+    vekd_buf_append(buf, "<script>");
+    vekd_buf_append(buf, HTMX_INLINE);
+    vekd_buf_append(buf, "</script>");
     vekd_buf_append(buf, "</head><body>");
 
     if (logged_in) {

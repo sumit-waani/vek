@@ -79,4 +79,11 @@ int vekd_db_user_create(VekdDB *vdb, const char *email,
 int vekd_db_user_get_by_email(VekdDB *vdb, const char *email, VekdUser *user);
 int vekd_db_user_count(VekdDB *vdb);
 
+/* Atomically create user only if no users exist (first-admin creation) */
+int vekd_db_user_create_if_no_users(VekdDB *vdb, const char *email,
+                                    const char *password_hash, int is_admin);
+
+/* Get the next available port for an app (MAX(port)+1 from DB) */
+int vekd_db_get_next_port(VekdDB *vdb);
+
 #endif /* VEKD_DB_H */

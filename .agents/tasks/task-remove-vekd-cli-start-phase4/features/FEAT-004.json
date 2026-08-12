@@ -1,0 +1,32 @@
+{
+  "id": "FEAT-004",
+  "type": "fix",
+  "description": "Address 8 security and correctness issues found during semantic code review: unsalted password hashing, deterministic encryption, admin account race condition, port counter reset, missing Secure cookie flag, disconnected supervisor check, orphan rows on app delete, and CDN dependency for htmx.",
+  "status": "in_progress",
+  "steps": [
+    "Replace unsalted SHA-256 password hashing with PBKDF2-SHA256 using a random salt and high iteration count",
+    "Add random 16-byte nonce to crypto encrypt, prepend to ciphertext, adjust decrypt to strip nonce prefix",
+    "Fix admin account creation race by using atomic INSERT with WHERE NOT EXISTS",
+    "Initialize next_port from SELECT MAX(port) FROM apps at startup instead of compile-time constant",
+    "Add Secure flag to session cookie format",
+    "Wire vekd_supervisor_check into the event loop via a repeating timer",
+    "Add cascading deletes for env_vars, events, releases when an app is deleted",
+    "Inline htmx source as a static C string instead of loading from CDN"
+  ],
+  "acceptance_criteria": [
+    "Password hashes include a salt prefix and use iterative hashing",
+    "Encrypting the same plaintext twice produces different ciphertexts",
+    "Admin creation uses a single atomic SQL statement",
+    "next_port is derived from MAX(port) in the database on startup",
+    "Session cookie includes the Secure flag",
+    "Supervisor check is wired to a timer in the event loop",
+    "Deleting an app also removes related env_vars, events, and releases rows",
+    "No external CDN references remain in the HTML templates"
+  ],
+  "verification": [
+    "Run 'make vekd' and confirm clean compilation",
+    "Run 'build/test_vekd_db' and confirm all tests pass"
+  ],
+  "blocked_reason": null,
+  "findings": null
+}

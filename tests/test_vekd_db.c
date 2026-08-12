@@ -209,16 +209,17 @@ static bool test_encrypt_decrypt(void) {
     const char *plaintext = "Hello, vekd secrets!";
     size_t len = strlen(plaintext);
 
-    uint8_t encrypted[64];
+    /* Output needs VEKD_NONCE_SIZE + len bytes */
+    uint8_t encrypted[VEKD_NONCE_SIZE + 64];
     uint8_t decrypted[64];
 
     int rc = vekd_crypto_encrypt(key, (const uint8_t *)plaintext, len, encrypted);
     ASSERT(rc == 0);
 
-    /* Encrypted should differ from plaintext */
-    ASSERT(memcmp(encrypted, plaintext, len) != 0);
+    /* Encrypted (after nonce) should differ from plaintext */
+    ASSERT(memcmp(encrypted + VEKD_NONCE_SIZE, plaintext, len) != 0);
 
-    rc = vekd_crypto_decrypt(key, encrypted, len, decrypted);
+    rc = vekd_crypto_decrypt(key, encrypted, VEKD_NONCE_SIZE + len, decrypted);
     ASSERT(rc == 0);
 
     /* Decrypted should match original */
@@ -234,14 +235,80 @@ static bool test_encrypt_large(void) {
     uint8_t data[100];
     for (int i = 0; i < 100; i++) data[i] = (uint8_t)i;
 
-    uint8_t encrypted[100];
+    uint8_t encrypted[VEKD_NONCE_SIZE + 100];
     uint8_t decrypted[100];
 
     vekd_crypto_encrypt(key, data, 100, encrypted);
-    ASSERT(memcmp(encrypted, data, 100) != 0);
+    ASSERT(memcmp(encrypted + VEKD_NONCE_SIZE, data, 100) != 0);
 
-    vekd_crypto_decrypt(key, encrypted, 100, decrypted);
+    vekd_crypto_decrypt(key, encrypted, VEKD_NONCE_SIZE + 100, decrypted);
     ASSERT(memcmp(decrypted, data, 100) == 0);
+    return true;
+}
+
+static bool test_encrypt_nonce_uniqueness(void) {
+    /* Encrypting the same plaintext twice should produce different ciphertexts */
+    uint8_t key[VEKD_KEY_SIZE];
+    memset(key, 0x55, VEKD_KEY_SIZE);
+
+    const char *plaintext = "duplicate";
+    size_t len = strlen(plaintext);
+
+    uint8_t enc1[VEKD_NONCE_SIZE + 64];
+    uint8_t enc2[VEKD_NONCE_SIZE + 64];
+
+    vekd_crypto_encrypt(key, (const uint8_t *)plaintext, len, enc1);
+    vekd_crypto_encrypt(key, (const uint8_t *)plaintext, len, enc2);
+
+    /* Nonces should differ */
+    ASSERT(memcmp(enc1, enc2, VEKD_NONCE_SIZE) != 0);
+
+    /* Full ciphertexts should differ */
+    ASSERT(memcmp(enc1, enc2, VEKD_NONCE_SIZE + len) != 0);
+
+    /* But both should decrypt to the same plaintext */
+    uint8_t dec1[64], dec2[64];
+    vekd_crypto_decrypt(key, enc1, VEKD_NONCE_SIZE + len, dec1);
+    vekd_crypto_decrypt(key, enc2, VEKD_NONCE_SIZE + len, dec2);
+    ASSERT(memcmp(dec1, plaintext, len) == 0);
+    ASSERT(memcmp(dec2, plaintext, len) == 0);
+    return true;
+}
+
+static bool test_password_hash_verify(void) {
+    const char *password = "mysecretpassword123";
+    char hash[128];
+
+    vekd_crypto_hash_password(password, hash, sizeof(hash));
+
+    /* Hash should not be empty */
+    ASSERT(hash[0] != '\0');
+    ASSERT(strlen(hash) == 97); /* 32 hex salt + $ + 64 hex derived */
+    ASSERT(hash[32] == '$');
+
+    /* Should verify correctly */
+    ASSERT(vekd_crypto_verify_password(password, hash) == true);
+
+    /* Wrong password should not verify */
+    ASSERT(vekd_crypto_verify_password("wrongpassword", hash) == false);
+
+    return true;
+}
+
+static bool test_password_hash_unique_salts(void) {
+    const char *password = "samepassword";
+    char hash1[128], hash2[128];
+
+    vekd_crypto_hash_password(password, hash1, sizeof(hash1));
+    vekd_crypto_hash_password(password, hash2, sizeof(hash2));
+
+    /* Same password should produce different hashes (different salts) */
+    ASSERT(strcmp(hash1, hash2) != 0);
+
+    /* But both should verify */
+    ASSERT(vekd_crypto_verify_password(password, hash1) == true);
+    ASSERT(vekd_crypto_verify_password(password, hash2) == true);
+
     return true;
 }
 
@@ -271,6 +338,9 @@ int main(void) {
     TEST(user_count);
     TEST(encrypt_decrypt);
     TEST(encrypt_large);
+    TEST(encrypt_nonce_uniqueness);
+    TEST(password_hash_verify);
+    TEST(password_hash_unique_salts);
 
     vekd_db_close(&db);
 

@@ -9,7 +9,6 @@
 #include "vekd_templates.h"
 #include "vekd_config.h"
 #include "vekd_crypto.h"
-#include "../sha256.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -131,16 +130,9 @@ static const char *form_get(FormData *form, const char *key) {
     return NULL;
 }
 
-/* ---- Helper: Simple password hashing using SHA256 ---- */
+/* ---- Helper: Simple password hashing using PBKDF2-SHA256 ---- */
 
-static void hash_password(const char *password, char *out_hash, size_t hash_len) {
-    uint8_t digest[32];
-    sha256_compute((const uint8_t *)password, strlen(password), digest);
-    for (int i = 0; i < 32 && (size_t)(i * 2 + 2) < hash_len; i++) {
-        snprintf(out_hash + (i * 2), 3, "%02x", digest[i]);
-    }
-    out_hash[64] = '\0';
-}
+/* (Moved to vekd_crypto.c: vekd_crypto_hash_password / vekd_crypto_verify_password) */
 
 /* ---- Helper: Check authentication ---- */
 
@@ -328,12 +320,12 @@ static void handle_login_post(HttpServer *server, Connection *conn,
         return;
     }
 
-    /* Check if any users exist; if not, create the first admin */
+    /* Check if any users exist; if not, atomically create the first admin */
     int user_count = vekd_db_user_count(ctx->db);
     if (user_count == 0) {
         char pw_hash[128];
-        hash_password(password, pw_hash, sizeof(pw_hash));
-        vekd_db_user_create(ctx->db, email, pw_hash, 1);
+        vekd_crypto_hash_password(password, pw_hash, sizeof(pw_hash));
+        vekd_db_user_create_if_no_users(ctx->db, email, pw_hash, 1);
     }
 
     /* Look up user */
@@ -345,9 +337,7 @@ static void handle_login_post(HttpServer *server, Connection *conn,
     }
 
     /* Verify password */
-    char pw_hash[128];
-    hash_password(password, pw_hash, sizeof(pw_hash));
-    if (strcmp(user.password_hash, pw_hash) != 0) {
+    if (!vekd_crypto_verify_password(password, user.password_hash)) {
         char *html = vekd_tpl_login("Invalid email or password.");
         send_html(server, conn, html);
         return;
@@ -684,8 +674,10 @@ static void handle_apps_env_set(HttpServer *server, Connection *conn,
     /* Encrypt the value */
     size_t val_len = value ? strlen(value) : 0;
     uint8_t *encrypted = NULL;
+    size_t encrypted_len = 0;
     if (val_len > 0) {
-        encrypted = malloc(val_len);
+        encrypted_len = VEKD_NONCE_SIZE + val_len;
+        encrypted = malloc(encrypted_len);
         if (encrypted) {
             vekd_crypto_encrypt(ctx->master_key, (const uint8_t *)value,
                                 val_len, encrypted);
@@ -700,8 +692,8 @@ static void handle_apps_env_set(HttpServer *server, Connection *conn,
     if (rc == SQLITE_OK) {
         sqlite3_bind_int64(stmt, 1, app.id);
         sqlite3_bind_text(stmt, 2, key, -1, SQLITE_TRANSIENT);
-        if (encrypted && val_len > 0) {
-            sqlite3_bind_blob(stmt, 3, encrypted, (int)val_len, SQLITE_TRANSIENT);
+        if (encrypted && encrypted_len > 0) {
+            sqlite3_bind_blob(stmt, 3, encrypted, (int)encrypted_len, SQLITE_TRANSIENT);
         } else {
             sqlite3_bind_null(stmt, 3);
         }
@@ -821,7 +813,7 @@ static void handle_settings_users_post(HttpServer *server, Connection *conn,
     }
 
     char pw_hash[128];
-    hash_password(password, pw_hash, sizeof(pw_hash));
+    vekd_crypto_hash_password(password, pw_hash, sizeof(pw_hash));
     vekd_db_user_create(ctx->db, email, pw_hash, 0);
 
     send_redirect(server, conn, "/settings/users", NULL);
@@ -863,7 +855,8 @@ static void handle_settings_cf_post(HttpServer *server, Connection *conn,
 
     /* Encrypt and store as a secret */
     size_t token_len = strlen(token);
-    uint8_t *encrypted = malloc(token_len);
+    size_t enc_len = VEKD_NONCE_SIZE + token_len;
+    uint8_t *encrypted = malloc(enc_len);
     if (encrypted) {
         vekd_crypto_encrypt(ctx->master_key, (const uint8_t *)token,
                             token_len, encrypted);
@@ -873,7 +866,7 @@ static void handle_settings_cf_post(HttpServer *server, Connection *conn,
         sqlite3_stmt *stmt;
         int rc = sqlite3_prepare_v2(ctx->db->db, sql, -1, &stmt, NULL);
         if (rc == SQLITE_OK) {
-            sqlite3_bind_blob(stmt, 1, encrypted, (int)token_len, SQLITE_TRANSIENT);
+            sqlite3_bind_blob(stmt, 1, encrypted, (int)enc_len, SQLITE_TRANSIENT);
             sqlite3_step(stmt);
             sqlite3_finalize(stmt);
         }
@@ -1002,8 +995,8 @@ void vekd_web_init(HttpServer *server, VekdWebContext *ctx) {
     /* Initialize session store */
     vekd_session_init(&ctx->sessions);
 
-    /* Initialize next port counter */
-    ctx->next_port = VEKD_APP_PORT_MIN;
+    /* Initialize next port counter from database (issue #4: survive restarts) */
+    ctx->next_port = vekd_db_get_next_port(ctx->db);
 
     /* Set the handler */
     http_server_set_handler(server, vekd_web_handler, ctx);

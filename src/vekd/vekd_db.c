@@ -181,9 +181,41 @@ int vekd_db_app_update_state(VekdDB *vdb, int64_t app_id, const char *state) {
 }
 
 int vekd_db_app_delete(VekdDB *vdb, int64_t app_id) {
-    const char *sql = "DELETE FROM apps WHERE id = ?";
+    /* Delete related rows first (cascading delete) */
+    const char *del_env = "DELETE FROM env_vars WHERE app_id = ?";
+    const char *del_events = "DELETE FROM events WHERE app_id = ?";
+    const char *del_releases = "DELETE FROM releases WHERE app_id = ?";
+    const char *del_app = "DELETE FROM apps WHERE id = ?";
+
     sqlite3_stmt *stmt;
-    int rc = sqlite3_prepare_v2(vdb->db, sql, -1, &stmt, NULL);
+    int rc;
+
+    /* Delete env_vars */
+    rc = sqlite3_prepare_v2(vdb->db, del_env, -1, &stmt, NULL);
+    if (rc == SQLITE_OK) {
+        sqlite3_bind_int64(stmt, 1, app_id);
+        sqlite3_step(stmt);
+        sqlite3_finalize(stmt);
+    }
+
+    /* Delete events */
+    rc = sqlite3_prepare_v2(vdb->db, del_events, -1, &stmt, NULL);
+    if (rc == SQLITE_OK) {
+        sqlite3_bind_int64(stmt, 1, app_id);
+        sqlite3_step(stmt);
+        sqlite3_finalize(stmt);
+    }
+
+    /* Delete releases */
+    rc = sqlite3_prepare_v2(vdb->db, del_releases, -1, &stmt, NULL);
+    if (rc == SQLITE_OK) {
+        sqlite3_bind_int64(stmt, 1, app_id);
+        sqlite3_step(stmt);
+        sqlite3_finalize(stmt);
+    }
+
+    /* Delete the app itself */
+    rc = sqlite3_prepare_v2(vdb->db, del_app, -1, &stmt, NULL);
     if (rc != SQLITE_OK) return -1;
 
     sqlite3_bind_int64(stmt, 1, app_id);
@@ -311,4 +343,45 @@ int vekd_db_user_count(VekdDB *vdb) {
     int count = (rc == SQLITE_ROW) ? sqlite3_column_int(stmt, 0) : -1;
     sqlite3_finalize(stmt);
     return count;
+}
+
+/* --- Port assignment --- */
+
+int vekd_db_get_next_port(VekdDB *vdb) {
+    const char *sql = "SELECT COALESCE(MAX(port), 9999) + 1 FROM apps";
+    sqlite3_stmt *stmt;
+    int rc = sqlite3_prepare_v2(vdb->db, sql, -1, &stmt, NULL);
+    if (rc != SQLITE_OK) return VEKD_APP_PORT_MIN;
+
+    rc = sqlite3_step(stmt);
+    int port = VEKD_APP_PORT_MIN;
+    if (rc == SQLITE_ROW) {
+        port = sqlite3_column_int(stmt, 0);
+        if (port < VEKD_APP_PORT_MIN) port = VEKD_APP_PORT_MIN;
+    }
+    sqlite3_finalize(stmt);
+    return port;
+}
+
+/* --- Atomic first-admin creation --- */
+
+int vekd_db_user_create_if_no_users(VekdDB *vdb, const char *email,
+                                    const char *password_hash, int is_admin) {
+    /* Atomic INSERT that only succeeds if users table is empty */
+    const char *sql =
+        "INSERT INTO users (email, password_hash, is_admin, created_at) "
+        "SELECT ?, ?, ?, ? WHERE (SELECT COUNT(*) FROM users) = 0";
+    sqlite3_stmt *stmt;
+    int rc = sqlite3_prepare_v2(vdb->db, sql, -1, &stmt, NULL);
+    if (rc != SQLITE_OK) return -1;
+
+    int64_t now = (int64_t)time(NULL);
+    sqlite3_bind_text(stmt, 1, email, -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 2, password_hash, -1, SQLITE_TRANSIENT);
+    sqlite3_bind_int(stmt, 3, is_admin);
+    sqlite3_bind_int64(stmt, 4, now);
+
+    rc = sqlite3_step(stmt);
+    sqlite3_finalize(stmt);
+    return (rc == SQLITE_DONE) ? 0 : -1;
 }

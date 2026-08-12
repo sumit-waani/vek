@@ -139,6 +139,6 @@ bool vekd_session_extract_cookie(const char *cookie_header, uint32_t cookie_len,
 
 int vekd_session_format_cookie(const char *token, char *buf, size_t buflen) {
     return snprintf(buf, buflen,
-                    "session=%s; Path=/; HttpOnly; SameSite=Strict",
+                    "session=%s; Path=/; HttpOnly; Secure; SameSite=Strict",
                     token);
 }
