@@ -1,4 +1,4 @@
-#include "stdlib.h"
+#include "vek_stdlib.h"
 #include "vm.h"
 #include "gc.h"
 
@@ -47,4 +47,7 @@ void stdlib_init(void) {
 
     ObjMap* crypto_pkg = create_package("crypto");
     stdlib_crypto_init(crypto_pkg);
+
+    ObjMap* server_pkg = create_package("server");
+    stdlib_http_server_init(server_pkg);
 }

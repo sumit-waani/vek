@@ -1,0 +1,36 @@
+{
+  "id": "FEAT-003",
+  "type": "feat",
+  "description": "HTTP/1.1 parser and server built on top of the event loop. Implements request parsing (method, path, headers, body with Content-Length), response formatting, keep-alive connection management, and a trie-based router with dynamic segments. Exposes a native 'server' function to vek code that starts listening and dispatches requests to registered route handlers.",
+  "status": "in_progress",
+  "steps": [
+    "Create src/http_parser.h - define HttpRequest struct: method (enum: GET/POST/PUT/PATCH/DELETE/HEAD/OPTIONS), path (string), query_string (string), version (HTTP/1.0 or 1.1), headers (array of key/value pairs, max 64), body (pointer+length), content_length, keep_alive flag. Define HTTP_PARSE_INCOMPLETE, HTTP_PARSE_OK, HTTP_PARSE_ERROR return codes.",
+    "Create src/http_parser.c - implement http_parse_request(buf, len, HttpRequest* out) that parses the request line and headers. Handle: CR LF line endings, header continuation (though rare), Content-Length for body. Return INCOMPLETE if not enough data yet (no double-CRLF found). This is a zero-copy parser that stores pointers into the buffer.",
+    "Create src/http_response.h/c - implement http_response_write(conn, status, headers, body) that formats a proper HTTP/1.1 response with Date header, Content-Length, Connection: keep-alive/close, and writes it to the connection's write buffer via event_loop_conn_write.",
+    "Create src/router.h - define Router struct using a trie (prefix tree). Each node has: children array (sorted by segment), handler function pointer, is_param flag, param_name. Define route_add(router, method, path, handler) and route_match(router, method, path, params_out).",
+    "Create src/router.c - implement the trie router. Split path by '/', insert segments as trie nodes. ':param' segments match any single path component and capture the value. '*' catch-all captures the rest. route_match returns the handler + a params map.",
+    "Create src/http_server.h/c - tie everything together: http_server_init(port) creates the event loop + listener, registers the on_accept callback. On data received, attempt to parse with http_parser. On complete request, call route_match to find handler, invoke handler, write response. Handle keep-alive (reset state after response for HTTP/1.1, close for 1.0 or Connection: close).",
+    "Create src/stdlib_http_server.c - expose to vek code: register native functions that let vek programs define routes and start the server. Implement: server.get(path, handler_closure), server.post(path, handler_closure), server.listen(port) that starts the event loop. The handler closure receives a request map and must return a response map (or use helper functions).",
+    "Create native request/response helpers accessible from vek: The request is exposed as an ObjMap with keys: method, path, query, headers, body, params. Response helpers: server.respond(conn, status, headers, body) or simpler: the handler returns a map {status: 200, body: 'hello', headers: {...}}.",
+    "Add integration test: tests/programs/http_hello.ve - a minimal HTTP server that responds with 'Hello, World!' on GET /. Add a test script tests/test_http.sh that starts the server in background, curls it, checks response, kills the server.",
+    "Update Makefile to have a 'test_http' target that runs the HTTP integration test"
+  ],
+  "acceptance_criteria": [
+    "make compiles with all HTTP-related files",
+    "A vek program can define a route handler and start listening on a port",
+    "GET requests to defined routes return correct responses with proper HTTP/1.1 formatting",
+    "Dynamic path segments (e.g., /posts/:id) are captured and available in req.params",
+    "Keep-alive connections work (multiple requests on one TCP connection)",
+    "Unknown routes return 404 Not Found",
+    "The HTTP parser handles incomplete reads correctly (waits for more data)",
+    "make test passes all existing tests",
+    "The HTTP integration test passes (server starts, responds to curl, shuts down)"
+  ],
+  "verification": [
+    "make clean && make",
+    "make test",
+    "Run manual HTTP test: ./build/vek run tests/programs/http_hello.ve & sleep 1 && curl -s http://localhost:3000/ && kill %1"
+  ],
+  "blocked_reason": null,
+  "findings": ""
+}
