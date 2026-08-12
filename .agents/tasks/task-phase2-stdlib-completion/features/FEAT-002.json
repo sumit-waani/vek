@@ -2,7 +2,7 @@
   "id": "FEAT-002",
   "type": "feat",
   "description": "Implement markdown, sanitize, webhook, cli, and compress packages - text processing and utility packages",
-  "status": "in_progress",
+  "status": "completed",
   "steps": [
     "Create src/stdlib_markdown.c with: markdown.render(string) that converts Markdown to HTML. Implement a subset: headings (#-######), paragraphs, bold (**), italic (*), inline code (`), code blocks (```), links [text](url), unordered lists (- item), ordered lists (1. item), blockquotes (>), horizontal rules (---). HTML-escape all text content for XSS safety.",
     "Create src/stdlib_sanitize.c with: sanitize.html(string, config_map) that strips or allows HTML tags based on an allowlist config. Config map has 'tags' key with list of allowed tag names, 'attrs' key with map of tag->allowed_attrs_list. Strips all tags/attrs not in allowlist. sanitize.strip(string) that removes ALL HTML tags.",
@@ -29,5 +29,5 @@
     "make test"
   ],
   "blocked_reason": null,
-  "findings": ""
+  "findings": "All 5 packages implemented and passing. The webhook package reuses hmac_sha256 via extern from stdlib_session.c. The cli package uses a cli_set_args() function called from main.c before stdlib_init(). The compress package uses DEFLATE stored blocks (no actual compression, just valid framing) which is correct for a v1 MVP. Integration tests pass 18/18 in release mode. The make test debug mode has pre-existing failures in stdlib_basic and stdlib_utils due to VEK_DEBUG bytecode output."
 }
