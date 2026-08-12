@@ -39,5 +39,6 @@ int cli_dispatch(int argc, char** argv);
 
 // Command implementations in separate files
 int cmd_new_run(int argc, char** argv);
+int cmd_dev_run(int argc, char** argv);
 
 #endif // VEK_CLI_H

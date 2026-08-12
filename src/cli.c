@@ -163,10 +163,16 @@ static int cmd_dev(int argc, char** argv) {
         printf("Usage: vek dev [options]\n");
         printf("\n");
         printf("Start development server with hot reload.\n");
+        printf("\n");
+        printf("Options:\n");
+        printf("  --port=N    Port to listen on (default: 3000, or PORT env var)\n");
+        printf("  --help      Show this help message\n");
+        printf("\n");
+        printf("Watches for .ve file changes and automatically restarts the app.\n");
+        printf("Looks for app.ve in the current directory.\n");
         return 0;
     }
-    printf("vek dev: not yet implemented\n");
-    return 0;
+    return cmd_dev_run(argc, argv);
 }
 
 static int cmd_build(int argc, char** argv) {
