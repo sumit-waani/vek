@@ -1,0 +1,11 @@
+/
+/about
+/posts
+/posts/:id
+/users/:userId/posts/:postId
+/api/health
+loaded: /posts
+loaded: /posts/:id
+loaded: /
+loaded: /about
+4

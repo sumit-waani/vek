@@ -1,0 +1,2 @@
+# Single post page with dynamic segment
+print("loaded: /posts/:id")

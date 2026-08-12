@@ -1,0 +1,14 @@
+# Test pages package
+
+# Test pages.route() - converts file paths to URL routes
+print(pages.route("index.ve"))
+print(pages.route("about.ve"))
+print(pages.route("posts/index.ve"))
+print(pages.route("posts/[id].ve"))
+print(pages.route("users/[userId]/posts/[postId].ve"))
+print(pages.route("api/health.ve"))
+
+# Test pages.scan() - scans directory and executes .ve files
+# The test_pages/ directory contains page files that print when loaded
+count = pages.scan("tests/programs/test_pages")
+print(count)
