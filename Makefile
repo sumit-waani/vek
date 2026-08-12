@@ -19,10 +19,27 @@ TARGET  := $(BUILDDIR)/vek
 TEST_SRCS := $(wildcard $(TESTDIR)/test_*.c)
 TEST_BINS := $(patsubst $(TESTDIR)/%.c,$(BUILDDIR)/%,$(TEST_SRCS))
 
+# vekd test sources need different linking
+VEKD_TEST_SRCS := $(wildcard $(TESTDIR)/test_vekd_*.c)
+VEKD_TEST_BINS := $(patsubst $(TESTDIR)/%.c,$(BUILDDIR)/%,$(VEKD_TEST_SRCS))
+
+# Non-vekd test sources link against the vek library objects
+VEK_TEST_SRCS  := $(filter-out $(VEKD_TEST_SRCS),$(TEST_SRCS))
+VEK_TEST_BINS  := $(patsubst $(TESTDIR)/%.c,$(BUILDDIR)/%,$(VEK_TEST_SRCS))
+
 # Library objects (everything except main.o, for linking with tests)
 LIB_OBJS := $(filter-out $(BUILDDIR)/main.o,$(OBJS))
 
-.PHONY: all clean debug test test_http test_web_app
+# vekd sources (separate binary)
+VEKD_SRCDIR := src/vekd
+VEKD_SRCS   := $(wildcard $(VEKD_SRCDIR)/*.c)
+VEKD_OBJS   := $(patsubst $(VEKD_SRCDIR)/%.c,$(BUILDDIR)/vekd_%.o,$(VEKD_SRCS))
+VEKD_TARGET := $(BUILDDIR)/vekd
+
+# Shared objects used by both vek and vekd
+SHARED_OBJS := $(BUILDDIR)/sqlite3.o $(BUILDDIR)/sha256.o
+
+.PHONY: all clean debug test test_http test_web_app vekd
 
 all: CFLAGS += $(RELEASE)
 all: $(TARGET)
@@ -39,15 +56,25 @@ $(BUILDDIR)/sqlite3.o: $(SRCDIR)/sqlite3.c | $(BUILDDIR)
 $(BUILDDIR)/%.o: $(SRCDIR)/%.c | $(BUILDDIR)
 	$(CC) $(CFLAGS) -c -o $@ $<
 
+# vekd binary
+vekd: CFLAGS += $(RELEASE)
+vekd: $(VEKD_TARGET)
+
+$(VEKD_TARGET): $(VEKD_OBJS) $(SHARED_OBJS) | $(BUILDDIR)
+	$(CC) $(CFLAGS) -o $@ $^ -lm -lpthread -ldl
+
+$(BUILDDIR)/vekd_%.o: $(VEKD_SRCDIR)/%.c | $(BUILDDIR)
+	$(CC) $(CFLAGS) -c -o $@ $<
+
 $(BUILDDIR):
 	mkdir -p $(BUILDDIR)
 
 # Test targets
 test: CFLAGS += $(DEBUG)
-test: $(TARGET) $(TEST_BINS)
+test: $(TARGET) $(VEK_TEST_BINS) $(VEKD_TEST_BINS)
 	@echo "=== Running unit tests ==="
 	@failed=0; \
-	for t in $(TEST_BINS); do \
+	for t in $(VEK_TEST_BINS) $(VEKD_TEST_BINS); do \
 		echo "  RUN  $$(basename $$t)"; \
 		if $$t; then \
 			echo "  PASS $$(basename $$t)"; \
@@ -65,6 +92,9 @@ test: $(TARGET) $(TEST_BINS)
 	@echo "=== Running integration tests ==="
 	@$(TESTDIR)/run_integration.sh
 	@echo "=== All integration tests passed ==="
+
+$(BUILDDIR)/test_vekd_%: $(TESTDIR)/test_vekd_%.c $(VEKD_OBJS) $(SHARED_OBJS) | $(BUILDDIR)
+	$(CC) $(CFLAGS) -I$(SRCDIR) -I$(VEKD_SRCDIR) -o $@ $< $(filter-out $(BUILDDIR)/vekd_vekd_main.o,$(VEKD_OBJS)) $(SHARED_OBJS) -lm -lpthread -ldl
 
 $(BUILDDIR)/test_%: $(TESTDIR)/test_%.c $(LIB_OBJS) | $(BUILDDIR)
 	$(CC) $(CFLAGS) -I$(SRCDIR) -o $@ $< $(LIB_OBJS) -lm -lpthread -ldl

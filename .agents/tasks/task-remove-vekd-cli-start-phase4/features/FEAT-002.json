@@ -2,7 +2,7 @@
   "id": "FEAT-002",
   "type": "feat",
   "description": "Implement vekd Phase 4.1 Core: the vekd binary entry point, SQLite state management, master key handling, and systemd/supervisor process management. This is the foundation that all other vekd components build on.",
-  "status": "pending",
+  "status": "in_progress",
   "steps": [
     "Create a new directory src/vekd/ for all vekd-specific source files to keep it separate from the vek CLI sources.",
     "Create src/vekd/vekd_main.c - the entry point for the vekd binary. On startup it should: check if /var/lib/vek/ exists (first-run detection), initialize the SQLite database, load or generate the master key, and start the HTTP server on port 8080.",
