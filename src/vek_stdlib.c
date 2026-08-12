@@ -68,4 +68,13 @@ void stdlib_init(void) {
 
     ObjMap* html_pkg = create_package("html");
     stdlib_view_init(html_pkg);
+
+    ObjMap* session_pkg = create_package("session");
+    stdlib_session_init(session_pkg);
+
+    ObjMap* csrf_pkg = create_package("csrf");
+    stdlib_csrf_init(csrf_pkg);
+
+    ObjMap* form_pkg = create_package("form");
+    stdlib_form_init(form_pkg);
 }

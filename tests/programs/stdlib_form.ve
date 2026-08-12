@@ -1,0 +1,30 @@
+# Test form package
+
+# Test parsing
+data = form.parse("name=alice&email=user%40example.com&age=25")
+print(form.get("name"))
+print(form.get("email"))
+print(form.get("age"))
+
+# Test URL decoding with +
+data2 = form.parse("msg=hello+world")
+print(form.get("msg"))
+
+# Test validation - valid data
+rules = {name: {required: true, min: 3, max: 50}, email: {required: true, type: "email"}, age: {type: "int"}}
+form.validate(data, rules)
+print(form.valid())
+print(len(form.errors()))
+
+# Test validation - invalid data (too short name, bad email)
+bad_data = form.parse("name=ab&email=notanemail&age=xyz")
+bad_rules = {name: {required: true, min: 3}, email: {type: "email"}, age: {type: "int"}}
+form.validate(bad_data, bad_rules)
+print(form.valid())
+print(len(form.errors()))
+
+# Test required field missing
+empty_data = form.parse("other=val")
+req_rules = {name: {required: true}}
+form.validate(empty_data, req_rules)
+print(form.valid())

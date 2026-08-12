@@ -1,0 +1,35 @@
+# Test session package
+
+# Initialize session with a secret key
+session.init("test-secret-key-123")
+
+# Test set and get
+session.set("user", "alice")
+print(session.get("user"))
+
+# Test get missing key
+print(session.get("nonexistent"))
+
+# Test set integer value
+session.set("count", 42)
+print(session.get("count"))
+
+# Test delete
+session.set("temp", "value")
+session.delete("temp")
+print(session.get("temp"))
+
+# Test flash messages
+session.flash_set("notice", "Record saved!")
+print(session.flash_get("notice"))
+print(session.flash_get("notice"))
+
+# Test encode/decode round-trip
+session.set("name", "bob")
+cookie = session.encode()
+print(len(cookie) > 0)
+
+# Decode the cookie back
+result = session.decode(cookie)
+print(result)
+print(session.get("name"))

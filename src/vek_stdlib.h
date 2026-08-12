@@ -22,6 +22,9 @@ void stdlib_kv_init(ObjMap* pkg);
 void stdlib_cache_init(ObjMap* pkg);
 void stdlib_db_init(ObjMap* pkg);
 void stdlib_view_init(ObjMap* pkg);
+void stdlib_session_init(ObjMap* pkg);
+void stdlib_csrf_init(ObjMap* pkg);
+void stdlib_form_init(ObjMap* pkg);
 
 // Helper: register a native function into a package map
 void stdlib_register(ObjMap* pkg, const char* name, NativeFn fn, int arity);
