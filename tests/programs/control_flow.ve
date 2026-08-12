@@ -1,0 +1,19 @@
+x = 10
+if x > 20
+  print("big")
+elsif x > 5
+  print("medium")
+else
+  print("small")
+end
+
+i = 0
+while i < 5
+  print(i)
+  i = i + 1
+end
+
+items = [10, 20, 30]
+for item in items
+  print(item)
+end

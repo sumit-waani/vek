@@ -1,0 +1,24 @@
+{
+  "id": "FEAT-001",
+  "type": "docs",
+  "description": "Create /docs directory with project architecture documentation and a phased implementation plan. This sets the context for all future development.",
+  "status": "completed",
+  "steps": [
+    "Create /projects/sandbox/vek/docs/ARCHITECTURE.md documenting the high-level system architecture: the compiler pipeline (tokenizer -> parser -> AST -> resolver -> code generator -> bytecode), the register-based VM with NaN-boxing and computed GOTO dispatch, the mark-and-sweep GC, and the fiber-based concurrency model. Reference specific design doc sections.",
+    "Create /projects/sandbox/vek/docs/IMPLEMENTATION_PLAN.md with a phased roadmap: Phase 1 (core language runtime - lexer, parser, compiler, VM, GC, basic types), Phase 2 (stdlib packages, HTTP server, file-based routing), Phase 3 (CLI tooling - dev/build/run/repl/fmt), Phase 4 (vekd dashboard, deploy, cgroups, Cloudflare). Each phase should list specific deliverables, dependencies, and success criteria.",
+    "Create /projects/sandbox/vek/docs/LANGUAGE_SPEC.md with a condensed language reference covering: value types (nil, bool, int, float, string, bytes, list, map), variables and constants, control flow (if/elsif/else/end, while, until, loop, for..in, case..in), functions and closures, lambdas/blocks, string interpolation, operators, error handling (raise/rescue, Unwind), truthy/falsy rules (only nil and false are falsy).",
+    "Create /projects/sandbox/vek/docs/BYTECODE_SPEC.md documenting the .vebc file format (header, constants table, strings table, function table, upvalue table, instruction section, line table, asset section) and the ~60 opcodes with their encoding formats."
+  ],
+  "acceptance_criteria": [
+    "docs/ARCHITECTURE.md exists and accurately describes the system per the design doc",
+    "docs/IMPLEMENTATION_PLAN.md exists with clear phased roadmap and Phase 1 is well-defined",
+    "docs/LANGUAGE_SPEC.md exists with complete v1 language reference",
+    "docs/BYTECODE_SPEC.md exists with the bytecode format and opcode listing"
+  ],
+  "verification": [
+    "Verify all four documentation files exist: ls docs/ARCHITECTURE.md docs/IMPLEMENTATION_PLAN.md docs/LANGUAGE_SPEC.md docs/BYTECODE_SPEC.md",
+    "Verify each file has substantive content (not empty): wc -l docs/*.md"
+  ],
+  "blocked_reason": null,
+  "findings": "All four docs created and committed. ARCHITECTURE.md (295 lines), BYTECODE_SPEC.md (422 lines), IMPLEMENTATION_PLAN.md (341 lines), LANGUAGE_SPEC.md (458 lines). Total 1516 lines. Documentation-only change, no build/test verification needed."
+}
