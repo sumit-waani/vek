@@ -128,6 +128,7 @@ void event_loop_destroy(EventLoop* loop) {
     while (timer) {
         Timer* next = timer->next;
         if (timer->fd >= 0) close(timer->fd);
+        free(timer->epoll_data);
         free(timer);
         timer = next;
     }
@@ -326,14 +327,14 @@ static void handle_accept(EventLoop* loop, Listener* lis) {
 
 // ---- Read handling ----
 
-static void handle_read(EventLoop* loop, Connection* conn, EpollData* ed) {
-    if (conn->state == CONN_CLOSED) return;
+static bool handle_read(EventLoop* loop, Connection* conn, EpollData* ed) {
+    if (conn->state == CONN_CLOSED) return true;
 
     // Edge-triggered: must read all available data
     for (;;) {
         if (!buffer_ensure(&conn->read_buf, 4096)) {
             event_loop_conn_close(loop, conn);
-            return;
+            return true;
         }
 
         ssize_t n = read(conn->fd, conn->read_buf.data + conn->read_buf.len,
@@ -348,7 +349,7 @@ static void handle_read(EventLoop* loop, Connection* conn, EpollData* ed) {
                 conn->on_data(loop, conn, conn->userdata);
             }
             event_loop_conn_close(loop, conn);
-            return;
+            return true;
         } else {
             if (errno == EAGAIN || errno == EWOULDBLOCK) {
                 break;  // No more data available
@@ -356,7 +357,7 @@ static void handle_read(EventLoop* loop, Connection* conn, EpollData* ed) {
             if (errno == EINTR) continue;
             // Read error
             event_loop_conn_close(loop, conn);
-            return;
+            return true;
         }
     }
 
@@ -366,6 +367,7 @@ static void handle_read(EventLoop* loop, Connection* conn, EpollData* ed) {
     }
 
     (void)ed;
+    return false;
 }
 
 // ---- Write handling ----
@@ -548,6 +550,7 @@ Timer* event_loop_add_timer(EventLoop* loop, uint64_t ms,
     timer->fd = tfd;
     timer->callback = callback;
     timer->userdata = userdata;
+    timer->epoll_data = NULL;
     timer->next = loop->timer_head;
     loop->timer_head = timer;
 
@@ -558,6 +561,7 @@ Timer* event_loop_add_timer(EventLoop* loop, uint64_t ms,
         free(timer);
         return NULL;
     }
+    timer->epoll_data = ed;
 
     struct epoll_event ev;
     ev.events = EPOLLIN | EPOLLET;
@@ -581,6 +585,12 @@ void event_loop_cancel_timer(EventLoop* loop, Timer* timer) {
         epoll_ctl(loop->epoll_fd, EPOLL_CTL_DEL, timer->fd, NULL);
         close(timer->fd);
         timer->fd = -1;
+    }
+
+    // Free the owned EpollData
+    if (timer->epoll_data) {
+        free(timer->epoll_data);
+        timer->epoll_data = NULL;
     }
 
     // Remove from list
@@ -631,10 +641,10 @@ void event_loop_run(EventLoop* loop) {
                         break;
                     }
                     if (ev_flags & EPOLLIN) {
-                        handle_read(loop, conn, ed);
+                        bool closed = handle_read(loop, conn, ed);
+                        if (closed) break;
                     }
                     if (ev_flags & EPOLLOUT) {
-                        // Check conn is still valid (might have been closed in read handler)
                         if (conn->state != CONN_CLOSED) {
                             handle_write(loop, conn, ed);
                         }
@@ -645,7 +655,8 @@ void event_loop_run(EventLoop* loop) {
                 case TAG_TIMER:
                     if (ev_flags & EPOLLIN) {
                         handle_timer(loop, (Timer*)ed->ptr);
-                        free(ed);
+                        // EpollData is freed inside event_loop_cancel_timer
+                        // (called by handle_timer), so don't free ed here.
                     }
                     break;
             }

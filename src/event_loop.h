@@ -54,6 +54,7 @@ struct Timer {
     int             fd;        // timerfd
     TimerCallback   callback;
     void*           userdata;
+    void*           epoll_data;  // Owned EpollData pointer
     Timer*          next;
 };
 

@@ -181,6 +181,12 @@ static void on_data(EventLoop* loop, Connection* conn, void* userdata) {
         conn->read_buf.len = 0;
     }
 
+    // Re-arm keep-alive timeout for next request
+    if (state->keep_alive && server->request_timeout_ms > 0) {
+        state->timeout = event_loop_add_timer(loop, server->request_timeout_ms,
+                                              on_request_timeout, conn);
+    }
+
     (void)loop;
 }
 
