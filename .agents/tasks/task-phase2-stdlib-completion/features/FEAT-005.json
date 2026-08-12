@@ -2,7 +2,7 @@
   "id": "FEAT-005",
   "type": "fix",
   "description": "Fix critical security and correctness issues identified in semantic review",
-  "status": "in_progress",
+  "status": "completed",
   "steps": [
     "Fix storage path traversal in src/stdlib_storage.c - reject keys containing '..' or starting with '/'",
     "Fix GC rooting in compress.encode_response in src/stdlib_compress.c - root ObjString temporaries before allocating more",
@@ -26,5 +26,5 @@
     "tests/run_integration.sh"
   ],
   "blocked_reason": null,
-  "findings": null
+  "findings": "All 6 critical fixes compile cleanly. Storage, http_client, and jobs integration tests pass with correct output. The intermittent SIGABRT/double-free in the VM is pre-existing and affects all tests randomly (confirmed by running tests on the base commit)."
 }
