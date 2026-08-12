@@ -113,4 +113,19 @@ void stdlib_init(void) {
 
     ObjMap* compress_pkg = create_package("compress");
     stdlib_compress_init(compress_pkg);
+
+    ObjMap* http_pkg = create_package("http");
+    stdlib_http_client_init(http_pkg);
+
+    ObjMap* mail_pkg = create_package("mail");
+    stdlib_mail_init(mail_pkg);
+
+    ObjMap* jobs_pkg = create_package("jobs");
+    stdlib_jobs_init(jobs_pkg);
+
+    ObjMap* storage_pkg = create_package("storage");
+    stdlib_storage_init(storage_pkg);
+
+    ObjMap* ws_pkg = create_package("ws");
+    stdlib_websocket_init(ws_pkg);
 }

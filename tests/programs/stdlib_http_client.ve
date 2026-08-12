@@ -1,0 +1,14 @@
+# Test http client package
+# Since we cannot guarantee a running HTTP server,
+# test that calling http.get on a non-existent host returns nil
+
+result = http.get("http://127.0.0.1:19999/test")
+print(result)
+
+# Test with invalid URL
+result2 = http.get("not-a-url")
+print(result2)
+
+# Test HTTPS returns nil (not supported in v1)
+result3 = http.get("https://example.com/")
+print(result3)

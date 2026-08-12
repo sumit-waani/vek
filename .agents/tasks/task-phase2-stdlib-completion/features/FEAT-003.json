@@ -2,7 +2,7 @@
   "id": "FEAT-003",
   "type": "feat",
   "description": "Implement http client, mail, jobs, storage, and websocket packages - network and background processing packages",
-  "status": "pending",
+  "status": "completed",
   "steps": [
     "Create src/stdlib_http_client.c with: http.get(url), http.post(url, body), http.put(url, body), http.delete(url) - each returns a map {status: int, body: string, headers: map}. Implement using raw TCP sockets with basic HTTP/1.1 protocol (connect, write request, read response, parse status/headers/body). Support https via a stub (return error for https in v1 or use system openssl if available). Support config map as last arg: {timeout: seconds, headers: map}. http.json_get(url) and http.json_post(url, data) that auto-encode/decode JSON.",
     "Create src/stdlib_mail.c with: mail.send(config_map) where config has keys: to, from, subject, text, html, host, port, username, password. Implement raw SMTP protocol over TCP socket: connect, EHLO, AUTH PLAIN (base64), MAIL FROM, RCPT TO, DATA, QUIT. Use the base64_encode from session package (declare it extern).",
@@ -29,5 +29,5 @@
     "make test"
   ],
   "blocked_reason": null,
-  "findings": ""
+  "findings": "All 5 packages implemented and tested. jobs.db files created at runtime need gitignore. The http client returns nil for HTTPS (not supported in v1) and for connection failures. The jobs package uses its own SQLite connection separate from stdlib_db. WebSocket SHA-1 is implemented inline."
 }

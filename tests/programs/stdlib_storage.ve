@@ -1,0 +1,28 @@
+# Test storage package
+
+# Configure with a test directory
+storage.configure({"dir": "/tmp/vek_test_storage"})
+
+# Put a value
+result = storage.put("test.txt", "hello world")
+print(result)
+
+# Get the value back
+data = storage.get("test.txt")
+print(data)
+
+# Get a non-existent key
+missing = storage.get("nonexistent.txt")
+print(missing)
+
+# Delete
+del_result = storage.delete("test.txt")
+print(del_result)
+
+# Verify deleted
+after_del = storage.get("test.txt")
+print(after_del)
+
+# Test url generation
+url = storage.url("myfile.png", 3600)
+print(len(url) > 0)

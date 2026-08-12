@@ -1,0 +1,30 @@
+# Test jobs package
+
+# Test pending count starts at 0
+print(jobs.pending())
+
+# Enqueue a job
+result = jobs.enqueue("send_email", {"to": "user@example.com", "subject": "Hello"})
+print(result)
+
+# Check pending count
+print(jobs.pending())
+
+# Enqueue another job
+jobs.enqueue("send_email", {"to": "admin@example.com", "subject": "Alert"})
+print(jobs.pending())
+
+# Register a handler
+fn handle_email(args)
+    return true
+end
+
+result2 = jobs.process("send_email", handle_email)
+print(result2)
+
+# Run one job
+run_result = jobs.run_one()
+print(run_result)
+
+# Pending should decrease
+print(jobs.pending())

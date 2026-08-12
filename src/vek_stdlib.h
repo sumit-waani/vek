@@ -37,6 +37,11 @@ void stdlib_sanitize_init(ObjMap* pkg);
 void stdlib_webhook_init(ObjMap* pkg);
 void stdlib_cli_init(ObjMap* pkg);
 void stdlib_compress_init(ObjMap* pkg);
+void stdlib_http_client_init(ObjMap* pkg);
+void stdlib_mail_init(ObjMap* pkg);
+void stdlib_jobs_init(ObjMap* pkg);
+void stdlib_storage_init(ObjMap* pkg);
+void stdlib_websocket_init(ObjMap* pkg);
 
 // cli.c needs this called from main to store argc/argv
 void cli_set_args(int argc, char** argv);
