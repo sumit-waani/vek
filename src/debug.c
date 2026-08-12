@@ -4,88 +4,88 @@
 
 static void print_value(Value value) {
     if (IS_INT(value)) {
-        printf("%lld", (long long)AS_INT(value));
+        fprintf(stderr, "%lld", (long long)AS_INT(value));
     } else if (IS_FLOAT(value)) {
-        printf("%g", AS_DOUBLE(value));
+        fprintf(stderr, "%g", AS_DOUBLE(value));
     } else if (IS_BOOL(value)) {
-        printf("%s", AS_BOOL(value) ? "true" : "false");
+        fprintf(stderr, "%s", AS_BOOL(value) ? "true" : "false");
     } else if (IS_NIL(value)) {
-        printf("nil");
+        fprintf(stderr, "nil");
     } else if (IS_PTR(value)) {
         ObjHeader* obj = (ObjHeader*)AS_PTR(value);
         if (obj->type == OBJ_STRING) {
             ObjString* str = (ObjString*)obj;
-            printf("\"%.*s\"", (int)str->length, str->data);
+            fprintf(stderr, "\"%.*s\"", (int)str->length, str->data);
         } else if (obj->type == OBJ_FUNCTION) {
             ObjFunction* func = (ObjFunction*)obj;
             if (func->name) {
-                printf("<fn %.*s>", (int)func->name->length, func->name->data);
+                fprintf(stderr, "<fn %.*s>", (int)func->name->length, func->name->data);
             } else {
-                printf("<script>");
+                fprintf(stderr, "<script>");
             }
         } else {
-            printf("<obj %d>", obj->type);
+            fprintf(stderr, "<obj %d>", obj->type);
         }
     } else {
-        printf("???");
+        fprintf(stderr, "???");
     }
 }
 
 // Simple instruction (no operands, 1 byte)
 static int simple_instruction(const char* name, int offset) {
-    printf("%s\n", name);
+    fprintf(stderr, "%s\n", name);
     return offset + 1;
 }
 
 // Instruction with a 16-bit operand (constant index, local slot, etc.)
 static int constant_instruction(const char* name, Chunk* chunk, int offset) {
     uint16_t idx = (uint16_t)(chunk->code[offset + 1] | (chunk->code[offset + 2] << 8));
-    printf("%-20s %5d '", name, idx);
+    fprintf(stderr, "%-20s %5d '", name, idx);
     if (idx < (uint16_t)chunk->const_count) {
         print_value(chunk->constants[idx]);
     } else {
-        printf("???");
+        fprintf(stderr, "???");
     }
-    printf("'\n");
+    fprintf(stderr, "'\n");
     return offset + 3;
 }
 
 // Instruction with a single byte operand
 static int byte_instruction(const char* name, Chunk* chunk, int offset) {
     uint8_t slot = chunk->code[offset + 1];
-    printf("%-20s %5d\n", name, slot);
+    fprintf(stderr, "%-20s %5d\n", name, slot);
     return offset + 2;
 }
 
 // Instruction with a 16-bit slot operand (locals, globals)
 static int short_instruction(const char* name, Chunk* chunk, int offset) {
     uint16_t slot = (uint16_t)(chunk->code[offset + 1] | (chunk->code[offset + 2] << 8));
-    printf("%-20s %5d\n", name, slot);
+    fprintf(stderr, "%-20s %5d\n", name, slot);
     return offset + 3;
 }
 
 // Jump instruction with a 16-bit offset
 static int jump_instruction(const char* name, int sign, Chunk* chunk, int offset) {
     uint16_t jump = (uint16_t)(chunk->code[offset + 1] | (chunk->code[offset + 2] << 8));
-    printf("%-20s %5d -> %d\n", name, offset, offset + 3 + sign * jump);
+    fprintf(stderr, "%-20s %5d -> %d\n", name, offset, offset + 3 + sign * jump);
     return offset + 3;
 }
 
 void disassemble_chunk(Chunk* chunk, const char* name) {
-    printf("== %s ==\n", name);
+    fprintf(stderr, "== %s ==\n", name);
     for (int offset = 0; offset < chunk->count; ) {
         offset = disassemble_instruction(chunk, offset);
     }
 }
 
 int disassemble_instruction(Chunk* chunk, int offset) {
-    printf("%04d ", offset);
+    fprintf(stderr, "%04d ", offset);
 
     // Print line info
     if (offset > 0 && chunk->lines[offset] == chunk->lines[offset - 1]) {
-        printf("   | ");
+        fprintf(stderr, "   | ");
     } else {
-        printf("%4d ", chunk->lines[offset]);
+        fprintf(stderr, "%4d ", chunk->lines[offset]);
     }
 
     uint8_t instruction = chunk->code[offset];
@@ -142,7 +142,7 @@ int disassemble_instruction(Chunk* chunk, int offset) {
 
         case OP_CONCAT: {
             uint8_t count = chunk->code[offset + 1];
-            printf("%-20s %5d\n", "OP_CONCAT", count);
+            fprintf(stderr, "%-20s %5d\n", "OP_CONCAT", count);
             return offset + 2;
         }
 
@@ -185,11 +185,11 @@ int disassemble_instruction(Chunk* chunk, int offset) {
             offset++;
             uint16_t constant = (uint16_t)(chunk->code[offset] | (chunk->code[offset + 1] << 8));
             offset += 2;
-            printf("%-20s %5d ", "OP_CLOSURE", constant);
+            fprintf(stderr, "%-20s %5d ", "OP_CLOSURE", constant);
             if (constant < (uint16_t)chunk->const_count) {
                 print_value(chunk->constants[constant]);
             }
-            printf("\n");
+            fprintf(stderr, "\n");
 
             // Print upvalue data
             if (constant < (uint16_t)chunk->const_count) {
@@ -199,7 +199,7 @@ int disassemble_instruction(Chunk* chunk, int offset) {
                     for (int j = 0; j < fn->upvalue_count; j++) {
                         int is_local = chunk->code[offset++];
                         int index = chunk->code[offset++];
-                        printf("%04d    |                     %s %d\n",
+                        fprintf(stderr, "%04d    |                     %s %d\n",
                                offset - 2, is_local ? "local" : "upvalue", index);
                     }
                 }
@@ -230,7 +230,7 @@ int disassemble_instruction(Chunk* chunk, int offset) {
             return simple_instruction("OP_POWER", offset);
 
         default:
-            printf("Unknown opcode %d\n", instruction);
+            fprintf(stderr, "Unknown opcode %d\n", instruction);
             return offset + 1;
     }
 }

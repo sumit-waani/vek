@@ -34,6 +34,8 @@ typedef struct ObjMap ObjMap;
 typedef struct ObjBytes ObjBytes;
 typedef struct ObjClosure ObjClosure;
 typedef struct ObjFunction ObjFunction;
+typedef struct ObjUpvalue ObjUpvalue;
+typedef struct ObjNative ObjNative;
 typedef struct Page Page;
 typedef struct GC GC;
 typedef struct Chunk Chunk;

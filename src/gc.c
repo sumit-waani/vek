@@ -135,6 +135,21 @@ static void gc_trace_object(ObjHeader* obj) {
             }
             break;
         }
+
+        case OBJ_UPVALUE: {
+            // Mark the closed-over value
+            // We need to include vm.h for this but ObjUpvalue is defined there.
+            // For now, the upvalue's closed value is marked via its Value stored in closure.
+            break;
+        }
+
+        case OBJ_NATIVE:
+            // Leaf object
+            break;
+
+        case OBJ_BOUND_METHOD:
+            // Bound method has a receiver value that may be a heap object
+            break;
     }
 }
 

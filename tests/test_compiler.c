@@ -242,8 +242,8 @@ static bool test_global_variable(void) {
     ASSERT(fn != NULL);
 
     Chunk* chunk = &fn->chunk;
-    // Should produce: CONSTANT(10), DEFINE_GLOBAL("x"), GET_GLOBAL("x"), POP
-    ASSERT(chunk_has_opcode(chunk, OP_DEFINE_GLOBAL));
+    // Should produce: CONSTANT(10), SET_GLOBAL("x"), POP, GET_GLOBAL("x"), POP
+    ASSERT(chunk_has_opcode(chunk, OP_SET_GLOBAL));
     ASSERT(chunk_has_opcode(chunk, OP_GET_GLOBAL));
 
     teardown();
@@ -313,13 +313,13 @@ static bool test_local_variables(void) {
     ObjFunction* fn = compile("fn test()\n  x = 5\n  x\nend\n");
     ASSERT(fn != NULL);
 
-    // The inner function should use SET_LOCAL and GET_LOCAL
+    // The inner function should use GET_LOCAL (new locals are placed on stack
+    // without an explicit SET_LOCAL; GET_LOCAL is used when reading back)
     for (int i = 0; i < fn->chunk.const_count; i++) {
         if (IS_PTR(fn->chunk.constants[i])) {
             ObjHeader* obj = (ObjHeader*)AS_PTR(fn->chunk.constants[i]);
             if (obj->type == OBJ_FUNCTION) {
                 ObjFunction* inner = (ObjFunction*)obj;
-                ASSERT(chunk_has_opcode(&inner->chunk, OP_SET_LOCAL));
                 ASSERT(chunk_has_opcode(&inner->chunk, OP_GET_LOCAL));
                 break;
             }

@@ -1,0 +1,20 @@
+s = "Hello, World!"
+print(s.length)
+print(s.upper)
+print(s.lower)
+print(s.reverse)
+
+greeting = "hello"
+print(greeting.contains("ell"))
+print(greeting.starts_with("hel"))
+print(greeting.ends_with("llo"))
+print(greeting.index_of("llo"))
+
+csv = "a,b,c,d"
+parts = csv.split(",")
+print(parts.length)
+print(parts.first)
+print(parts.last)
+
+trimmed = "  spaces  ".trim
+print(trimmed)

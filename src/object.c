@@ -2,6 +2,7 @@
 #include "memory.h"
 #include "gc.h"
 #include "chunk.h"
+#include "vm.h"
 
 // ---- String Interning Table ----
 
@@ -353,6 +354,18 @@ void obj_free(ObjHeader* obj) {
                 vek_free(closure->upvalues, sizeof(Value) * closure->upvalue_count);
             }
             vek_free(obj, sizeof(ObjClosure));
+            return;
+        }
+        case OBJ_UPVALUE: {
+            vek_free(obj, sizeof(ObjUpvalue));
+            return;
+        }
+        case OBJ_NATIVE: {
+            vek_free(obj, sizeof(ObjNative));
+            return;
+        }
+        case OBJ_BOUND_METHOD: {
+            vek_free(obj, obj->size);
             return;
         }
     }

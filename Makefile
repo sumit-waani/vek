@@ -41,7 +41,7 @@ $(BUILDDIR):
 # Test targets
 test: CFLAGS += $(DEBUG)
 test: $(TARGET) $(TEST_BINS)
-	@echo "=== Running tests ==="
+	@echo "=== Running unit tests ==="
 	@failed=0; \
 	for t in $(TEST_BINS); do \
 		echo "  RUN  $$(basename $$t)"; \
@@ -53,10 +53,14 @@ test: $(TARGET) $(TEST_BINS)
 		fi; \
 	done; \
 	if [ $$failed -ne 0 ]; then \
-		echo "=== $$failed test(s) FAILED ==="; \
+		echo "=== $$failed unit test(s) FAILED ==="; \
 		exit 1; \
 	fi; \
-	echo "=== All tests passed ==="
+	echo "=== All unit tests passed ==="
+	@echo ""
+	@echo "=== Running integration tests ==="
+	@$(TESTDIR)/run_integration.sh
+	@echo "=== All integration tests passed ==="
 
 $(BUILDDIR)/test_%: $(TESTDIR)/test_%.c $(LIB_OBJS) | $(BUILDDIR)
 	$(CC) $(CFLAGS) -I$(SRCDIR) -o $@ $< $(LIB_OBJS) -lm

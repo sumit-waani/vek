@@ -13,6 +13,9 @@ typedef enum {
     OBJ_BYTES,
     OBJ_FUNCTION,
     OBJ_CLOSURE,
+    OBJ_UPVALUE,
+    OBJ_NATIVE,
+    OBJ_BOUND_METHOD,
 } ObjType;
 
 // Object header flags
@@ -129,9 +132,16 @@ void         obj_free(ObjHeader* obj);
 #define IS_STRING(value)  (IS_PTR(value) && OBJ_TYPE(value) == OBJ_STRING)
 #define IS_LIST(value)    (IS_PTR(value) && OBJ_TYPE(value) == OBJ_LIST)
 #define IS_MAP(value)     (IS_PTR(value) && OBJ_TYPE(value) == OBJ_MAP)
+#define IS_FUNCTION(value)(IS_PTR(value) && OBJ_TYPE(value) == OBJ_FUNCTION)
+#define IS_CLOSURE(value) (IS_PTR(value) && OBJ_TYPE(value) == OBJ_CLOSURE)
+#define IS_NATIVE(value)  (IS_PTR(value) && OBJ_TYPE(value) == OBJ_NATIVE)
+#define IS_BOUND_METHOD(value) (IS_PTR(value) && OBJ_TYPE(value) == OBJ_BOUND_METHOD)
 #define AS_STRING(value)  ((ObjString*)AS_PTR(value))
 #define AS_LIST(value)    ((ObjList*)AS_PTR(value))
 #define AS_MAP(value)     ((ObjMap*)AS_PTR(value))
+#define AS_FUNCTION(value)((ObjFunction*)AS_PTR(value))
+#define AS_CLOSURE(value) ((ObjClosure*)AS_PTR(value))
+#define AS_NATIVE(value)  ((ObjNative*)AS_PTR(value))
 #define OBJ_VAL(obj)      PTR_VAL((void*)(obj))
 
 #endif // VEK_OBJECT_H

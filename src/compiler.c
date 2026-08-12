@@ -107,6 +107,7 @@ typedef struct Loop {
 static Parser parser;
 static Compiler* current = NULL;
 static Loop* current_loop = NULL;
+static bool created_local = false; // set when assignment creates a new local
 
 // ---- Forward declarations ----
 static void expression(void);
@@ -452,15 +453,15 @@ static void named_variable(Token name, bool can_assign) {
         if (get_op == OP_GET_GLOBAL) {
             // Check if we're in a local scope; if so, declare a new local
             if (current->scope_depth > 0) {
-                // Create a new local variable
+                // Create a new local variable - value is already on stack
+                // in the correct slot position; no SET_LOCAL needed.
                 add_local(name);
                 mark_initialized();
-                int local_slot = current->local_count - 1;
-                emit_byte(OP_SET_LOCAL);
-                emit_short((uint16_t)local_slot);
+                created_local = true;
             } else {
-                // At global scope, define a new global
-                emit_byte(OP_DEFINE_GLOBAL);
+                // At global scope, set/create a global (SET_GLOBAL peeks, not pops,
+                // so expression_statement's OP_POP will clean up)
+                emit_byte(OP_SET_GLOBAL);
                 emit_short((uint16_t)arg);
             }
         } else if (set_op == OP_SET_UPVALUE) {
@@ -688,9 +689,11 @@ static void dot(bool can_assign) {
         emit_short(name);
     } else if (match(TOKEN_LPAREN)) {
         // Method call: obj.method(args)
-        uint8_t arg_count = argument_list();
+        // First get the method (object is on stack top, GET_FIELD pops it and pushes method)
         emit_byte(OP_GET_FIELD);
         emit_short(name);
+        // Now push arguments
+        uint8_t arg_count = argument_list();
         emit_bytes(OP_CALL, arg_count);
     } else {
         emit_byte(OP_GET_FIELD);
@@ -858,8 +861,12 @@ static void expression(void) {
 // ---- Statement compilation ----
 
 static void expression_statement(void) {
+    created_local = false;
     expression();
-    emit_byte(OP_POP);
+    if (!created_local) {
+        emit_byte(OP_POP);
+    }
+    created_local = false;
 }
 
 static void if_statement(void) {
@@ -885,6 +892,11 @@ static void if_statement(void) {
     patch_jump(then_jump);
     emit_byte(OP_POP);  // pop condition
 
+    // Collect all exit jumps to patch at the end
+    int exit_jumps[256];
+    int exit_count = 0;
+    exit_jumps[exit_count++] = else_jump;
+
     // Handle elsif chain
     while (match(TOKEN_ELSIF)) {
         skip_newlines();
@@ -903,15 +915,9 @@ static void if_statement(void) {
         }
 
         int next_jump = emit_jump(OP_JUMP);
+        exit_jumps[exit_count++] = next_jump;
         patch_jump(elsif_jump);
         emit_byte(OP_POP);
-
-        // Patch previous else_jump to here is complex; use a simple approach:
-        // Chain jumps: each elsif/else block jumps to end.
-        // We need to track all forward jumps and patch them at the end.
-        // Simplification: patch else_jump and reassign
-        patch_jump(else_jump);
-        else_jump = next_jump;
     }
 
     // Else branch
@@ -923,7 +929,10 @@ static void if_statement(void) {
         }
     }
 
-    patch_jump(else_jump);
+    // Patch all exit jumps to here (end of if/elsif/else)
+    for (int i = 0; i < exit_count; i++) {
+        patch_jump(exit_jumps[i]);
+    }
 
     skip_newlines();
     consume(TOKEN_END, "Expected 'end' after if statement.");
@@ -1047,6 +1056,9 @@ static void for_statement(void) {
     mark_initialized();
     int var_slot = current->local_count - 1;
 
+    // Push placeholder for the loop variable (it occupies a stack slot)
+    emit_byte(OP_NIL);
+
     consume(TOKEN_IN, "Expected 'in' after for variable.");
     skip_newlines();
     expression();
@@ -1059,10 +1071,7 @@ static void for_statement(void) {
     mark_initialized();
     int iter_slot = current->local_count - 1;
 
-    // Set local slot for iterator
-    emit_byte(OP_SET_LOCAL);
-    emit_short((uint16_t)iter_slot);
-    emit_byte(OP_POP);
+    // Iterator is now on stack in the correct slot position
 
     loop.start = current_chunk()->count;
 

@@ -1,0 +1,30 @@
+nums = [1, 2, 3]
+nums.push(4)
+nums.push(5)
+print(nums.length)
+print(nums.first)
+print(nums.last)
+print(nums[2])
+
+popped = nums.pop
+print(popped)
+print(nums.length)
+
+print(nums.contains(3))
+print(nums.contains(99))
+
+words = ["hello", "world"]
+print(words.join(" "))
+
+m = {name: "vek", version: "0.1"}
+print(m.name)
+print(m.version)
+m.year = 2024
+print(m.year)
+print(m.length)
+print(m.has("name"))
+print(m.has("missing"))
+
+for key in m.keys
+  print(key)
+end

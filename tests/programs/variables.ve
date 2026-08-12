@@ -1,0 +1,16 @@
+x = 10
+y = 20
+print(x + y)
+
+fn scoped()
+  a = 100
+  b = 200
+  print(a + b)
+end
+scoped()
+
+name = "vek"
+print(name)
+
+x = x + 5
+print(x)
