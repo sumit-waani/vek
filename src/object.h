@@ -3,6 +3,7 @@
 
 #include "common.h"
 #include "value.h"
+#include "chunk.h"
 
 // Object types
 typedef enum {
@@ -70,12 +71,13 @@ struct ObjBytes {
 };
 
 // ---- Function ----
-// Compiled function (placeholder for now, will be extended in later phases)
+// Compiled function with bytecode
 struct ObjFunction {
-    ObjHeader header;
-    uint8_t   arity;
-    uint8_t   upvalue_count;
-    // bytecode chunk will be added later
+    ObjHeader  header;
+    uint8_t    arity;
+    uint8_t    upvalue_count;
+    Chunk      chunk;
+    ObjString* name;        // function name (NULL for top-level script)
 };
 
 // ---- Closure ----

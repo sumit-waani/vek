@@ -36,6 +36,7 @@ typedef struct ObjClosure ObjClosure;
 typedef struct ObjFunction ObjFunction;
 typedef struct Page Page;
 typedef struct GC GC;
+typedef struct Chunk Chunk;
 
 // Memory functions (declared here, defined in memory.c)
 void* vek_alloc(size_t size);

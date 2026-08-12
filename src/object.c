@@ -1,6 +1,7 @@
 #include "object.h"
 #include "memory.h"
 #include "gc.h"
+#include "chunk.h"
 
 // ---- String Interning Table ----
 
@@ -288,6 +289,8 @@ ObjFunction* obj_function_new(void) {
     ObjFunction* func = (ObjFunction*)alloc_object(sizeof(ObjFunction), OBJ_FUNCTION);
     func->arity = 0;
     func->upvalue_count = 0;
+    func->name = NULL;
+    chunk_init(&func->chunk);
     return func;
 }
 
@@ -339,6 +342,8 @@ void obj_free(ObjHeader* obj) {
             return;
         }
         case OBJ_FUNCTION: {
+            ObjFunction* func = (ObjFunction*)obj;
+            chunk_free(&func->chunk);
             vek_free(obj, sizeof(ObjFunction));
             return;
         }
