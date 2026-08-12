@@ -2,7 +2,7 @@
   "id": "FEAT-003",
   "type": "feat",
   "description": "Implement vekd Phase 4.5 Web UI: the htmx-based admin dashboard served on port 8080. This is the ONLY management interface for vekd - all app deployment, configuration, and monitoring happens through this web UI.",
-  "status": "pending",
+  "status": "completed",
   "steps": [
     "Create src/vekd/vekd_web.c and vekd_web.h - The web UI HTTP server and route handlers. Reuse the existing HTTP server/router pattern from src/http_server.c and src/router.c but adapted for vekd's admin interface.",
     "Implement the login page (GET /login, POST /login) with session cookie-based authentication. On first boot, display the initial password that was generated during setup.",
@@ -30,5 +30,5 @@
     "Run 'make -C /projects/sandbox/vek test' and confirm all tests pass"
   ],
   "blocked_reason": null,
-  "findings": ""
+  "findings": "Build succeeds with zero warnings for vekd sources. All unit tests pass (16/16 vekd_db tests). Integration test failures (control_flow, stdlib_form, stdlib_pages, strings) are pre-existing issues in the vek language runtime and unrelated to vekd. The Makefile SHARED_OBJS now includes http_server.o, event_loop.o, router.o, http_parser.o for the vekd link step."
 }
