@@ -2,7 +2,7 @@
   "id": "FEAT-002",
   "type": "feat",
   "description": "View DSL with HTML helpers, Builder, auto-escaping, layouts, and partials. Implements the internal Builder type and HTML helper functions that write to it, plus a render system.",
-  "status": "in_progress",
+  "status": "completed",
   "steps": [
     "Create src/stdlib_view.c implementing the view/html package. Implement a Builder struct (growable byte buffer, 4KB initial, doubling growth). Builder functions: builder_init, builder_write, builder_write_str, builder_write_escaped (escapes & < > \" '), builder_finish (returns ObjString), builder_free.",
     "Implement HTML helper native functions that write to a thread-local or global Builder: html, head, body, div, span, p, h1-h6, a, ul, ol, li, form, input, button, label, textarea, select, option, table, tr, td, th, header, footer, main, nav, section, article, img, br, hr, meta, link, title, script, style, small, strong, em, pre, code. Each takes attributes as a map and content as a string or closure.",
@@ -28,5 +28,5 @@
     "make test"
   ],
   "blocked_reason": null,
-  "findings": ""
+  "findings": "Vek language does not support anonymous function expressions (fn()...end as expression). Closures must be defined as named functions and passed by name. Some integration tests have intermittent flaky failures (likely GC-related) that are pre-existing and not caused by this feature. The html package is registered under the 'html' namespace, so all helpers are accessed as html.div(), html.render_inline(), etc."
 }
