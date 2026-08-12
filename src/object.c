@@ -8,6 +8,10 @@
 static ObjString MAP_TOMBSTONE_STORAGE;
 ObjString* MAP_TOMBSTONE = &MAP_TOMBSTONE_STORAGE;
 
+// Tombstone sentinel for intern table (non-NULL pointer that is never a valid string)
+static ObjString INTERN_TOMBSTONE_STORAGE;
+static ObjString* INTERN_TOMBSTONE = &INTERN_TOMBSTONE_STORAGE;
+
 // ---- String Interning Table ----
 
 InternTable intern_table = {0};
@@ -49,6 +53,11 @@ ObjString* intern_table_find(const char* chars, uint32_t length, uint32_t hash) 
         if (entry == NULL) {
             return NULL;
         }
+        if (entry == INTERN_TOMBSTONE) {
+            // Skip tombstone, continue probing
+            index = (index + 1) & (intern_table.capacity - 1);
+            continue;
+        }
         if (entry->length == length && entry->hash == hash &&
             memcmp(entry->data, chars, length) == 0) {
             return entry;
@@ -66,10 +75,10 @@ static void intern_table_grow(void) {
         exit(1);
     }
 
-    // Rehash all entries
+    // Rehash all live entries (skip tombstones)
     for (uint32_t i = 0; i < intern_table.capacity; i++) {
         ObjString* entry = intern_table.entries[i];
-        if (entry == NULL) continue;
+        if (entry == NULL || entry == INTERN_TOMBSTONE) continue;
         uint32_t idx = entry->hash & (new_cap - 1);
         while (new_entries[idx] != NULL) {
             idx = (idx + 1) & (new_cap - 1);
@@ -90,7 +99,7 @@ void intern_table_insert(ObjString* str) {
     }
 
     uint32_t index = str->hash & (intern_table.capacity - 1);
-    while (intern_table.entries[index] != NULL) {
+    while (intern_table.entries[index] != NULL && intern_table.entries[index] != INTERN_TOMBSTONE) {
         index = (index + 1) & (intern_table.capacity - 1);
     }
     intern_table.entries[index] = str;
@@ -98,11 +107,12 @@ void intern_table_insert(ObjString* str) {
 }
 
 // Remove unmarked strings from the intern table (called during GC sweep)
+// Uses tombstone sentinel to preserve probe chains.
 void intern_table_remove_unmarked(void) {
     for (uint32_t i = 0; i < intern_table.capacity; i++) {
         ObjString* entry = intern_table.entries[i];
-        if (entry != NULL && !(entry->header.flags & OBJ_FLAG_MARK)) {
-            intern_table.entries[i] = NULL;
+        if (entry != NULL && entry != INTERN_TOMBSTONE && !(entry->header.flags & OBJ_FLAG_MARK)) {
+            intern_table.entries[i] = INTERN_TOMBSTONE;
             intern_table.count--;
         }
     }

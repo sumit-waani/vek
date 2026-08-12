@@ -653,7 +653,12 @@ static Value string_replace_method(Value receiver, int arg_count, Value* args) {
     }
     if (count == 0) return receiver;
 
-    uint32_t new_len = str->length + (uint32_t)count * (new_str->length - old->length);
+    // Use signed arithmetic to avoid unsigned underflow
+    int64_t delta = (int64_t)new_str->length - (int64_t)old->length;
+    int64_t new_len_s = (int64_t)str->length + (int64_t)count * delta;
+    if (new_len_s < 0) new_len_s = 0; // safety
+    uint32_t new_len = (uint32_t)new_len_s;
+
     char* buf = (char*)malloc(new_len + 1);
     char* dst = buf;
     const char* src = str->data;
@@ -1018,9 +1023,9 @@ static InterpretResult run(void) {
         [OP_POWER]         = &&op_power,
     };
 
-#define DISPATCH() goto *dispatch_table[READ_BYTE()]
+#define DISPATCH() do { if (vm.had_error) return INTERPRET_RUNTIME_ERROR; goto *dispatch_table[READ_BYTE()]; } while(0)
 #else
-#define DISPATCH() goto loop_top
+#define DISPATCH() do { if (vm.had_error) return INTERPRET_RUNTIME_ERROR; goto loop_top; } while(0)
 #endif
 
 #ifdef USE_COMPUTED_GOTO
