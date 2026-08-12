@@ -2,7 +2,7 @@
   "id": "FEAT-001",
   "type": "feat",
   "description": "Native module system for stdlib packages. Implement a module/namespace mechanism so that stdlib packages like 'log', 'env', 'json' can be accessed as 'log.info()', 'env(\"KEY\")', 'json.encode(val)' etc. This uses the existing ObjMap + native function infrastructure - each package is a global ObjMap with native function values.",
-  "status": "in_progress",
+  "status": "completed",
   "steps": [
     "Create src/stdlib.h - declare a registration function for each stdlib package and a master stdlib_init() that registers all packages into vm.globals",
     "Create src/stdlib.c - implement stdlib_init() that creates a map for each package name and registers it as a global. Initially register empty maps for: log, env, json, time, crypto, path, uuid",
@@ -30,5 +30,5 @@
     "make test"
   ],
   "blocked_reason": null,
-  "findings": ""
+  "findings": "1. Renamed stdlib.h to vek_stdlib.h because -Isrc causes our file to shadow the system <stdlib.h>. 2. The lexer reserves 'get', 'post', 'put', 'patch', 'delete', 'in', 'module' etc. as keywords, so they cannot be used as field/method names after dot. Fixed by allowing all keywords after dot in the compiler (is_identifier_like function). 3. ObjBytes had no IS_BYTES/AS_BYTES macros - added them. 4. The vek language uses bare assignment (x = 10) not 'let x = 10'. 5. Map key iteration order is non-deterministic (hash-based), so integration tests should avoid multi-key map encode assertions."
 }
