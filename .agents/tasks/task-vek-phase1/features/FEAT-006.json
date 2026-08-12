@@ -2,7 +2,7 @@
   "id": "FEAT-006",
   "type": "fix",
   "description": "Fix 7 issues found during code review: GC tracing gaps (ObjFunction, ObjUpvalue, ObjBoundMethod), map delete tombstone, stack overflow check, shift operand range check, and value_to_string recursion depth limit.",
-  "status": "in_progress",
+  "status": "completed",
   "steps": [
     "Fix gc_trace_object to trace ObjFunction name and chunk.constants",
     "Fix gc_trace_object to trace ObjUpvalue.closed value",
@@ -27,5 +27,5 @@
     "Run 'make test' and confirm all tests pass"
   ],
   "blocked_reason": null,
-  "findings": null
+  "findings": "All 7 issues fixed. Key implementation details: (1) MAP_TOMBSTONE is a static ObjString storage used as a sentinel pointer that cannot collide with any real string. All map iteration (keys, values, GC tracing, value_to_string, iterator_next) updated to skip tombstones. (2) vm_push overflow check prints to stderr and sets had_error flag rather than calling runtime_error (which requires a valid frame). (3) value_to_string_depth uses depth parameter with max 16 recursions, returning '...' when exceeded. (4) Shift range check uses runtime_error with informative message. All 99 unit tests + 8 integration tests pass."
 }
