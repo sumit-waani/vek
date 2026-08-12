@@ -2,7 +2,7 @@
   "id": "FEAT-003",
   "type": "feat",
   "description": "HTTP/1.1 parser and server built on top of the event loop. Implements request parsing (method, path, headers, body with Content-Length), response formatting, keep-alive connection management, and a trie-based router with dynamic segments. Exposes a native 'server' function to vek code that starts listening and dispatches requests to registered route handlers.",
-  "status": "in_progress",
+  "status": "completed",
   "steps": [
     "Create src/http_parser.h - define HttpRequest struct: method (enum: GET/POST/PUT/PATCH/DELETE/HEAD/OPTIONS), path (string), query_string (string), version (HTTP/1.0 or 1.1), headers (array of key/value pairs, max 64), body (pointer+length), content_length, keep_alive flag. Define HTTP_PARSE_INCOMPLETE, HTTP_PARSE_OK, HTTP_PARSE_ERROR return codes.",
     "Create src/http_parser.c - implement http_parse_request(buf, len, HttpRequest* out) that parses the request line and headers. Handle: CR LF line endings, header continuation (though rare), Content-Length for body. Return INCOMPLETE if not enough data yet (no double-CRLF found). This is a zero-copy parser that stores pointers into the buffer.",
@@ -32,5 +32,5 @@
     "Run manual HTTP test: ./build/vek run tests/programs/http_hello.ve & sleep 1 && curl -s http://localhost:3000/ && kill %1"
   ],
   "blocked_reason": null,
-  "findings": ""
+  "findings": "1. Vek language does not support anonymous functions (fn(args){...}); only named fn declarations with end keyword. Route handlers must be defined as named functions then passed by name. 2. Added vm.call_depth field to VM struct so OP_RETURN can stop at the correct frame depth when vm_call() invokes closures from C. 3. Router initialization must happen early (in stdlib_http_server_init) since routes are added before server.listen() is called. The event loop is initialized separately in server.listen(). 4. The vm_call() function works by: setting call_depth to current frame_count, calling call_value to push a new frame, running run() which stops when frame_count drops back to call_depth, then popping the result. 5. Pre-existing warnings from computed-goto (GNU extension) are expected and not caused by this change."
 }
