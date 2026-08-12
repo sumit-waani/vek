@@ -1,0 +1,68 @@
+# Comprehensive web app integration test
+# Demonstrates: routing, JSON, kv store, path utils, uuid, logging, env
+
+# Use env for configurable port (default 3002)
+port = 3002
+
+log.info("Starting web app demo on port ", port)
+
+# GET / - returns HTML greeting
+fn handle_root(req)
+    return "<h1>Welcome to Vek Web App</h1>"
+end
+
+# GET /api/status - returns JSON with server info
+fn handle_status(req)
+    id = uuid.v4()
+    now = time.now()
+    return server.json({status: "ok", server_id: id, uptime: now, version: "0.1.0"})
+end
+
+# GET /api/echo/:message - echoes the message as JSON
+fn handle_echo(req)
+    message = req.params["message"]
+    normalized = path.normalize("/api/echo/" + message)
+    return server.json({echo: message, path: normalized})
+end
+
+# POST /api/kv - stores a key-value pair from JSON body
+fn handle_kv_set(req)
+    data = json.decode(req.body)
+    key = data["key"]
+    value = data["value"]
+    kv.set(key, value)
+    log.info("KV SET: ", key, " = ", value)
+    return server.json({stored: true, key: key})
+end
+
+# GET /api/kv/:key - retrieves a value from the kv store
+fn handle_kv_get(req)
+    key = req.params["key"]
+    value = kv.get(key)
+    has = kv.has(key)
+    return server.json({key: key, value: value, found: has})
+end
+
+# DELETE /api/kv/:key - deletes a key from the kv store
+fn handle_kv_delete(req)
+    key = req.params["key"]
+    kv.delete(key)
+    return server.json({deleted: true, key: key})
+end
+
+# GET /api/path/join - demonstrates path.join
+fn handle_path_join(req)
+    result = path.join("/api", "users", "42", "profile")
+    basename = path.basename(result)
+    dirname = path.dirname(result)
+    return server.json({joined: result, basename: basename, dirname: dirname})
+end
+
+server.get("/", handle_root)
+server.get("/api/status", handle_status)
+server.get("/api/echo/:message", handle_echo)
+server.post("/api/kv", handle_kv_set)
+server.get("/api/kv/:key", handle_kv_get)
+server.delete("/api/kv/:key", handle_kv_delete)
+server.get("/api/path/join", handle_path_join)
+server.listen(port)

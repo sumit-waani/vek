@@ -16,6 +16,10 @@ void stdlib_json_init(ObjMap* pkg);
 void stdlib_time_init(ObjMap* pkg);
 void stdlib_crypto_init(ObjMap* pkg);
 void stdlib_http_server_init(ObjMap* pkg);
+void stdlib_path_init(ObjMap* pkg);
+void stdlib_uuid_init(ObjMap* pkg);
+void stdlib_kv_init(ObjMap* pkg);
+void stdlib_cache_init(ObjMap* pkg);
 
 // Helper: register a native function into a package map
 void stdlib_register(ObjMap* pkg, const char* name, NativeFn fn, int arity);

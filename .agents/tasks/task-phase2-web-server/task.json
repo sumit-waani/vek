@@ -1,0 +1,7 @@
+{
+  "task_id": "task-phase2-web-server",
+  "task_description": "Phase 2 Sub-Phase 1: Implement a working HTTP web server for the vek language. This includes a native module/stdlib system, an epoll-based event loop, HTTP/1.1 parser and server with trie-based routing, and core stdlib packages (log, env, json, time, crypto, path, uuid, kv, cache). The end result is a vek program that can define route handlers and serve HTTP requests.",
+  "status": "in_progress",
+  "feature_order": ["FEAT-001", "FEAT-002", "FEAT-003", "FEAT-004"],
+  "blocked_reason": null
+}

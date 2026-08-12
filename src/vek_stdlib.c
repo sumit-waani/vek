@@ -50,4 +50,16 @@ void stdlib_init(void) {
 
     ObjMap* server_pkg = create_package("server");
     stdlib_http_server_init(server_pkg);
+
+    ObjMap* path_pkg = create_package("path");
+    stdlib_path_init(path_pkg);
+
+    ObjMap* uuid_pkg = create_package("uuid");
+    stdlib_uuid_init(uuid_pkg);
+
+    ObjMap* kv_pkg = create_package("kv");
+    stdlib_kv_init(kv_pkg);
+
+    ObjMap* cache_pkg = create_package("cache");
+    stdlib_cache_init(cache_pkg);
 }

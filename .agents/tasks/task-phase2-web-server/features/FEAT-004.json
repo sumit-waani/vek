@@ -1,0 +1,30 @@
+{
+  "id": "FEAT-004",
+  "type": "feat",
+  "description": "Additional core stdlib packages (path, uuid, kv, cache) and end-to-end integration test demonstrating a working web application that uses routing, JSON responses, environment variables, logging, and basic state management via kv store.",
+  "status": "in_progress",
+  "steps": [
+    "Implement the 'path' package in src/stdlib_path.c: path.join(parts...) joins URL path segments with '/', path.normalize(p) removes double slashes and trailing slash, path.basename(p) returns last segment, path.dirname(p) returns parent path",
+    "Implement the 'uuid' package in src/stdlib_uuid.c: uuid.v4() generates a random UUID v4 string (using /dev/urandom for random bytes, formatting as 8-4-4-4-12 hex with version/variant bits set correctly)",
+    "Implement the 'kv' package in src/stdlib_kv.c: kv.set(key, value) stores a value, kv.get(key) retrieves it (or nil), kv.delete(key) removes it, kv.clear() removes all. Implemented as an ObjMap stored globally in the VM. Optional TTL support: kv.set(key, value, ttl: seconds) expires entries lazily on get.",
+    "Implement the 'cache' package in src/stdlib_cache.c: cache.get(key) returns cached value or nil, cache.set(key, value, ttl: seconds), cache.delete(key). Simpler than kv - always has TTL, used for computed values.",
+    "Create a comprehensive integration test: tests/programs/web_app.ve that defines multiple routes (GET /, GET /api/status returning JSON, GET /api/echo/:msg returning the param, POST /api/kv to store a value), uses log.info for request logging, env for config. Create corresponding .expected file or a shell-based test.",
+    "Create tests/test_http_integration.sh that: starts the web app server, exercises multiple endpoints with curl, validates JSON responses, tests 404 handling, tests path params, then shuts down. Hook this into 'make test' or a separate 'make test_integration_http' target.",
+    "Ensure all stdlib packages are properly initialized in stdlib_init() and documented in the test output"
+  ],
+  "acceptance_criteria": [
+    "make compiles with all new stdlib files",
+    "path.join('/api', 'posts', '42') returns '/api/posts/42'",
+    "uuid.v4() returns a valid UUID string (36 chars, correct format)",
+    "kv.set/kv.get round-trips values correctly",
+    "The web app integration test demonstrates a full request/response cycle with JSON encoding",
+    "make test passes all tests",
+    "The HTTP integration test exercises at least 5 different endpoint scenarios"
+  ],
+  "verification": [
+    "make clean && make",
+    "make test"
+  ],
+  "blocked_reason": null,
+  "findings": ""
+}
