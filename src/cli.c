@@ -452,14 +452,7 @@ static int cmd_build(int argc, char** argv) {
 }
 
 static int cmd_fmt(int argc, char** argv) {
-    if (cli_has_flag(argc, argv, "--help")) {
-        printf("Usage: vek fmt [files...]\n");
-        printf("\n");
-        printf("Format vek source files.\n");
-        return 0;
-    }
-    printf("vek fmt: not yet implemented\n");
-    return 0;
+    return cmd_fmt_run(argc, argv);
 }
 
 static int cmd_shell(int argc, char** argv) {
