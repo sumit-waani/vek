@@ -1,0 +1,34 @@
+{
+  "id": "FEAT-003",
+  "type": "feat",
+  "description": "Implement vekd Phase 4.5 Web UI: the htmx-based admin dashboard served on port 8080. This is the ONLY management interface for vekd - all app deployment, configuration, and monitoring happens through this web UI.",
+  "status": "pending",
+  "steps": [
+    "Create src/vekd/vekd_web.c and vekd_web.h - The web UI HTTP server and route handlers. Reuse the existing HTTP server/router pattern from src/http_server.c and src/router.c but adapted for vekd's admin interface.",
+    "Implement the login page (GET /login, POST /login) with session cookie-based authentication. On first boot, display the initial password that was generated during setup.",
+    "Implement the dashboard page (GET /dashboard) showing: list of deployed apps with status indicators, system resource usage (memory, CPU from /proc), and quick action buttons.",
+    "Implement app management pages: GET /apps/new (deploy form), POST /apps (create app), GET /apps/:id (app detail with env vars, deploy history, logs), POST /apps/:id/deploy (trigger deploy), POST /apps/:id/stop, POST /apps/:id/start, POST /apps/:id/restart.",
+    "Implement environment variable management: GET /apps/:id/env (list env vars), POST /apps/:id/env (set env var), DELETE /apps/:id/env/:key (unset env var). Values encrypted at rest via master key.",
+    "Implement log tailing: GET /apps/:id/logs - shows recent log output with htmx polling for live updates.",
+    "Implement settings pages: GET /settings/users, POST /settings/users (add user), GET /settings/cloudflare, POST /settings/cloudflare (set API token), GET /settings/backup, POST /settings/backup (trigger backup).",
+    "Create src/vekd/vekd_templates.c and vekd_templates.h - Server-side HTML rendering using C string building (similar to the view system in stdlib_view.c). Include htmx script tag, basic CSS, and layout template.",
+    "Implement htmx-based interactions: deploy buttons use hx-post with swap for status updates, log tailing uses hx-get with hx-trigger='every 2s', env var forms use hx-post for inline editing.",
+    "Add the vekd web UI routes to the build and verify the dashboard is accessible."
+  ],
+  "acceptance_criteria": [
+    "The vekd binary serves the admin web UI on port 8080",
+    "Login page authenticates users and sets a session cookie",
+    "Dashboard shows list of apps with their current status",
+    "Users can create new apps, deploy, stop, start, restart, and delete apps entirely through the web UI",
+    "Environment variables can be managed (set/unset) through the web UI",
+    "Log output is visible and updates in near-real-time via htmx polling",
+    "Settings pages allow user management and Cloudflare token configuration",
+    "All HTML is server-rendered with htmx for interactivity (no client-side framework)"
+  ],
+  "verification": [
+    "Run 'make -C /projects/sandbox/vek vekd' and confirm compilation succeeds with the web UI code included",
+    "Run 'make -C /projects/sandbox/vek test' and confirm all tests pass"
+  ],
+  "blocked_reason": null,
+  "findings": ""
+}
