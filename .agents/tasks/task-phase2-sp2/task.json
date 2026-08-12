@@ -1,0 +1,7 @@
+{
+  "task_id": "task-phase2-sp2",
+  "task_description": "Phase 2 Sub-Phase 2: Implement file-based routing, View DSL with HTML helpers, SQLite database package, Session & CSRF packages, and Form validation package for the vek language runtime.",
+  "status": "in_progress",
+  "feature_order": ["FEAT-001", "FEAT-002", "FEAT-003", "FEAT-004"],
+  "blocked_reason": null
+}

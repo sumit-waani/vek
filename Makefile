@@ -10,8 +10,9 @@ SRCDIR  := src
 BUILDDIR:= build
 TESTDIR := tests
 
-SRCS    := $(wildcard $(SRCDIR)/*.c)
+SRCS    := $(filter-out $(SRCDIR)/sqlite3.c,$(wildcard $(SRCDIR)/*.c))
 OBJS    := $(patsubst $(SRCDIR)/%.c,$(BUILDDIR)/%.o,$(SRCS))
+OBJS    += $(BUILDDIR)/sqlite3.o
 TARGET  := $(BUILDDIR)/vek
 
 # Test sources (each test_*.c is a standalone binary)
@@ -30,7 +31,10 @@ debug: CFLAGS += $(DEBUG)
 debug: $(TARGET)
 
 $(TARGET): $(OBJS) | $(BUILDDIR)
-	$(CC) $(CFLAGS) -o $@ $^ -lm
+	$(CC) $(CFLAGS) -o $@ $^ -lm -lpthread -ldl
+
+$(BUILDDIR)/sqlite3.o: $(SRCDIR)/sqlite3.c | $(BUILDDIR)
+	$(CC) -std=c11 -O2 -DSQLITE_THREADSAFE=1 -c -o $@ $<
 
 $(BUILDDIR)/%.o: $(SRCDIR)/%.c | $(BUILDDIR)
 	$(CC) $(CFLAGS) -c -o $@ $<
@@ -63,7 +67,7 @@ test: $(TARGET) $(TEST_BINS)
 	@echo "=== All integration tests passed ==="
 
 $(BUILDDIR)/test_%: $(TESTDIR)/test_%.c $(LIB_OBJS) | $(BUILDDIR)
-	$(CC) $(CFLAGS) -I$(SRCDIR) -o $@ $< $(LIB_OBJS) -lm
+	$(CC) $(CFLAGS) -I$(SRCDIR) -o $@ $< $(LIB_OBJS) -lm -lpthread -ldl
 
 clean:
 	rm -rf $(BUILDDIR)

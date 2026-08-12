@@ -1,0 +1,31 @@
+{
+  "id": "FEAT-001",
+  "type": "feat",
+  "description": "SQLite database package (db) - Download SQLite amalgamation and implement the db stdlib package with query, row, exec, scalar, and transaction support. This is the foundation other features (sessions) may depend on.",
+  "status": "in_progress",
+  "steps": [
+    "Download SQLite amalgamation (sqlite3.c + sqlite3.h) from https://www.sqlite.org/2024/sqlite-amalgamation-3450000.zip and place sqlite3.c and sqlite3.h into src/ directory. The Makefile wildcard will auto-compile it.",
+    "Create src/stdlib_db.c implementing the db package with these native functions: db.open(path) - opens SQLite DB in WAL mode; db.query(sql, params...) - returns list of maps (one map per row, column names as keys); db.row(sql, params...) - returns first row as map or nil; db.exec(sql, params...) - executes statement, returns last insert rowid as int; db.scalar(sql, params...) - returns first column of first row as a value; db.close() - closes the database connection.",
+    "Implement parameter binding: support ?, positional params. Bind int (INT_VAL), float (FLOAT_VAL), string (OBJ_VAL string), nil (NULL), bool (0/1 integer). Results: INTEGER->INT_VAL, REAL->FLOAT_VAL, TEXT->OBJ_VAL(ObjString), NULL->VAL_NIL, BLOB->OBJ_VAL(ObjBytes).",
+    "Implement db.transaction(closure) - begin transaction, call the closure via vm_call, commit on success, rollback on error. Follow the pattern in stdlib_http_server.c for calling closures.",
+    "Register the db package in src/vek_stdlib.c and src/vek_stdlib.h following the existing pattern (create_package + stdlib_db_init declaration).",
+    "Update the Makefile to add -lsqlite3 OR compile the amalgamation source directly (since sqlite3.c is in src/, it gets compiled automatically but we need -lpthread -ldl for SQLite). Add -lpthread -ldl to the linker flags.",
+    "Create tests/test_db.c with unit tests: open in-memory DB, create table, insert rows, query rows, test parameter binding, test transactions (commit and rollback), test db.scalar, test db.row returning nil for no results.",
+    "Create tests/programs/stdlib_db.ve + tests/programs/stdlib_db.expected integration test that exercises the db package from vek code: open a temp DB, create table, insert, query, verify results via print statements."
+  ],
+  "acceptance_criteria": [
+    "make clean && make compiles successfully with sqlite3.c included",
+    "tests/test_db.c unit test passes (build/test_db runs successfully)",
+    "tests/programs/stdlib_db.ve integration test output matches .expected file",
+    "db.query returns a list of maps with correct column names and types",
+    "db.exec returns the last insert rowid",
+    "db.transaction commits on success and rolls back on error",
+    "WAL mode is enabled on database open"
+  ],
+  "verification": [
+    "make clean && make",
+    "make test"
+  ],
+  "blocked_reason": null,
+  "findings": ""
+}

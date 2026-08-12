@@ -1,0 +1,29 @@
+{
+  "id": "FEAT-004",
+  "type": "feat",
+  "description": "File-based routing - scan pages/ directory at startup, map filenames to routes automatically. This builds on top of the existing router and server infrastructure.",
+  "status": "pending",
+  "steps": [
+    "Create src/stdlib_pages.c implementing the pages/file-based routing system. At startup (when server.listen is called or via a pages.scan() function), recursively scan a pages/ directory relative to the script being run.",
+    "Implement the directory scanning: use opendir/readdir/closedir to recursively walk pages/. For each .ve file found, compute the route path: pages/index.ve -> /, pages/about.ve -> /about, pages/posts/index.ve -> /posts, pages/posts/[id].ve -> /posts/:id (convert [param] to :param).",
+    "For each discovered page file, read and compile it using vm_interpret (or the existing file reading + compilation path). The compiled code should register its own routes via get/post/etc. calls within the file. Alternatively, auto-register the file's compiled closure as the handler for the computed route path.",
+    "Given the design shows each page file containing explicit get/post blocks, the simplest approach is: for each .ve file in pages/, read and execute it. The get/post/etc calls in those files will register routes with the existing router. The file-based routing just determines WHICH files to load - the routing registration happens via the existing server.get/server.post mechanism.",
+    "Implement pages.scan(dir_path) native function that takes a directory path string, walks it recursively, and for each .ve file: reads it, compiles it, and executes it (which triggers the route registrations inside those files).",
+    "Register the pages package in vek_stdlib.c and vek_stdlib.h.",
+    "Create tests/programs/stdlib_pages.ve + supporting page files in tests/programs/test_pages/ directory to test the file-based routing scan. The integration test can verify that pages.scan works by checking that routes get registered (though full HTTP testing requires the server running, so a simpler test can just verify the scan completes without error).",
+    "Create a tests/programs/test_pages/ directory with sample page files: index.ve, about.ve, posts/index.ve, posts/[id].ve to test the routing pattern."
+  ],
+  "acceptance_criteria": [
+    "make clean && make compiles successfully",
+    "pages.scan(path) recursively discovers .ve files in the given directory",
+    "File paths are correctly mapped to URL routes (index.ve -> /, [param].ve -> :param)",
+    "Discovered page files are loaded and their route registrations take effect",
+    "The existing router/server infrastructure works with file-based routes"
+  ],
+  "verification": [
+    "make clean && make",
+    "make test"
+  ],
+  "blocked_reason": null,
+  "findings": ""
+}

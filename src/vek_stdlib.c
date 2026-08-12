@@ -62,4 +62,7 @@ void stdlib_init(void) {
 
     ObjMap* cache_pkg = create_package("cache");
     stdlib_cache_init(cache_pkg);
+
+    ObjMap* db_pkg = create_package("db");
+    stdlib_db_init(db_pkg);
 }
