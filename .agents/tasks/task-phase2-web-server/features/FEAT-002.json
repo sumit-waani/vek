@@ -1,0 +1,28 @@
+{
+  "id": "FEAT-002",
+  "type": "feat",
+  "description": "Event loop and TCP listener using epoll (Linux). Implement a non-blocking event loop that can accept TCP connections, read/write data, and manage timers. This is the foundation for the HTTP server. For Phase 2 sub-phase 1, we use a single-threaded event loop (no fibers yet) - each connection is handled to completion before the next. This is sufficient for a working HTTP server and can be upgraded to fibers later.",
+  "status": "completed",
+  "steps": [
+    "Create src/event_loop.h - define the EventLoop struct containing: epoll fd, a list of active connections (fd + state + read buffer + write buffer), a timer list, running flag. Define connection states: CONN_READING, CONN_WRITING, CONN_CLOSED. Define callback types for on_accept, on_data, on_write_done.",
+    "Create src/event_loop.c - implement: event_loop_init() creates epoll fd, event_loop_run() calls epoll_wait in a loop, event_loop_stop() sets running=false. Implement event_loop_listen(port, on_accept_cb) that creates a non-blocking listening socket (SO_REUSEADDR, SO_REUSEPORT), binds, listens, and registers with epoll for EPOLLIN.",
+    "Implement connection management: on accept, create a Connection struct with read_buf (4KB initial), write_buf (4KB initial), state. Register the new fd with epoll for EPOLLIN|EPOLLET (edge-triggered). On EPOLLIN, read available data into read_buf, call the on_data callback. On EPOLLOUT, write from write_buf, when done call on_write_done.",
+    "Implement event_loop_conn_write(conn, data, len) that appends data to the connection's write buffer and registers EPOLLOUT interest. Implement event_loop_conn_close(conn) that closes the fd and frees buffers.",
+    "Implement simple timer support: event_loop_add_timer(ms, callback, userdata) using timerfd_create for Linux. Used later for keep-alive timeouts.",
+    "Add a unit test: tests/test_event_loop.c that creates an event loop, listens on a port, connects with a client socket, sends data, verifies it can be echoed back, then shuts down cleanly.",
+    "Verify build compiles and existing tests still pass"
+  ],
+  "acceptance_criteria": [
+    "make compiles with the new event loop files",
+    "tests/test_event_loop passes: creates a listening socket, accepts a connection, reads data, writes response, closes cleanly",
+    "Event loop exits cleanly when event_loop_stop() is called",
+    "All existing unit and integration tests still pass",
+    "No memory leaks on clean shutdown (valgrind-clean if available, or manual inspection)"
+  ],
+  "verification": [
+    "make clean && make",
+    "make test"
+  ],
+  "blocked_reason": null,
+  "findings": "1. Need _GNU_SOURCE defined at top of event_loop.c for SO_REUSEPORT, CLOCK_MONOTONIC, and timerfd. 2. Tests need _GNU_SOURCE for usleep(). 3. The Makefile test rule does not need -lpthread since we use fork() instead of threads. 4. EpollData structs are heap-allocated to tag fd types (listener/connection/timer) in epoll_event.data.ptr. 5. Timer is one-shot and self-removes after firing."
+}

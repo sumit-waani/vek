@@ -21,7 +21,7 @@ TEST_BINS := $(patsubst $(TESTDIR)/%.c,$(BUILDDIR)/%,$(TEST_SRCS))
 # Library objects (everything except main.o, for linking with tests)
 LIB_OBJS := $(filter-out $(BUILDDIR)/main.o,$(OBJS))
 
-.PHONY: all clean debug test
+.PHONY: all clean debug test test_http test_web_app
 
 all: CFLAGS += $(RELEASE)
 all: $(TARGET)
@@ -67,3 +67,13 @@ $(BUILDDIR)/test_%: $(TESTDIR)/test_%.c $(LIB_OBJS) | $(BUILDDIR)
 
 clean:
 	rm -rf $(BUILDDIR)
+
+# HTTP server integration test
+test_http: $(TARGET)
+	@echo "=== Running HTTP integration test ==="
+	@$(TESTDIR)/test_http.sh
+
+# Web app integration test (comprehensive end-to-end)
+test_web_app: $(TARGET)
+	@echo "=== Running Web App integration test ==="
+	@$(TESTDIR)/test_web_app.sh

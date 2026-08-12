@@ -117,6 +117,7 @@ static Value native_len(int arg_count, Value* args) {
     if (IS_STRING(v)) return INT_VAL((int64_t)AS_STRING(v)->length);
     if (IS_LIST(v)) return INT_VAL((int64_t)AS_LIST(v)->length);
     if (IS_MAP(v)) return INT_VAL((int64_t)AS_MAP(v)->length);
+    if (IS_BYTES(v)) return INT_VAL((int64_t)AS_BYTES(v)->length);
     return INT_VAL(0);
 }
 
@@ -129,6 +130,7 @@ void vm_init(void) {
     vm.handler_count = 0;
     vm.had_error = false;
     vm.error_msg[0] = '\0';
+    vm.call_depth = 0;
 
     // Create globals table
     vm.globals = obj_map_new();
@@ -945,12 +947,47 @@ InterpretResult vm_interpret(const char* source) {
     vm_push(OBJ_VAL(closure));
     call_closure(closure, 0);
 
+    vm.call_depth = 0;
     InterpretResult result = run();
 
     vm_unpin((ObjHeader*)closure);
     vm_unpin((ObjHeader*)function);
 
     return result;
+}
+
+// ---- Call a value from C code ----
+
+Value vm_call(Value callee, int arg_count) {
+    // The callee and arguments must already be pushed on the stack.
+    // callee is at stack_top[-arg_count-1], args are above it.
+
+    // For native functions, call_value handles everything
+    if (IS_PTR(callee) && OBJ_TYPE(callee) == OBJ_NATIVE) {
+        if (!call_value(callee, arg_count)) {
+            return VAL_NIL;
+        }
+        return vm_peek(0);
+    }
+
+    // For closures, set up the call frame and run the interpreter
+    int saved_call_depth = vm.call_depth;
+    vm.call_depth = vm.frame_count; // stop when we return to this depth
+
+    if (!call_value(callee, arg_count)) {
+        vm.call_depth = saved_call_depth;
+        return VAL_NIL;
+    }
+
+    InterpretResult result = run();
+    vm.call_depth = saved_call_depth;
+
+    if (result != INTERPRET_OK) {
+        return VAL_NIL;
+    }
+
+    // run() pushed the result value via OP_RETURN
+    return vm_pop();
 }
 
 // ---- The dispatch loop ----
@@ -1679,8 +1716,9 @@ static InterpretResult run(void) {
         Value result = vm_pop();
         close_upvalues(frame->slots);
         vm.frame_count--;
-        if (vm.frame_count == 0) {
-            vm_pop(); // pop the script function
+        if (vm.frame_count == vm.call_depth) {
+            vm_pop(); // pop the script/closure function
+            vm_push(result); // push result for vm_call to retrieve
             return INTERPRET_OK;
         }
         vm.stack_top = frame->slots;

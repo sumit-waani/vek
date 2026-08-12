@@ -678,8 +678,21 @@ static void call(bool can_assign) {
     emit_bytes(OP_CALL, arg_count);
 }
 
+static bool is_identifier_like(TokenType type) {
+    // Allow keywords as field/method names after '.'
+    // All keyword tokens are between TOKEN_FN and TOKEN_HALT (inclusive).
+    // Rather than enumerating each one, use a range check so new keywords
+    // added to the lexer are automatically allowed without updating this.
+    return type == TOKEN_IDENTIFIER ||
+           (type >= TOKEN_FN && type <= TOKEN_HALT);
+}
+
 static void dot(bool can_assign) {
-    consume(TOKEN_IDENTIFIER, "Expected property name after '.'.");
+    if (!is_identifier_like(parser.current.type)) {
+        error_at_current("Expected property name after '.'.");
+        return;
+    }
+    advance();
     uint16_t name = identifier_constant(&parser.previous);
 
     if (can_assign && match(TOKEN_EQUAL)) {

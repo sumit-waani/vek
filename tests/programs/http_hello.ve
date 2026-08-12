@@ -1,0 +1,25 @@
+# HTTP server integration test
+# Defines routes and starts listening
+
+fn handle_root(req)
+    return "Hello, World!"
+end
+
+fn handle_greet(req)
+    name = req.params["name"]
+    return "Hello, " + name + "!"
+end
+
+fn handle_json(req)
+    return server.json({message: "hello", count: 42})
+end
+
+fn handle_echo(req)
+    return {status: 200, body: req.body, headers: {"content-type": "text/plain"}}
+end
+
+server.get("/", handle_root)
+server.get("/greet/:name", handle_greet)
+server.get("/json", handle_json)
+server.post("/echo", handle_echo)
+server.listen(3001)

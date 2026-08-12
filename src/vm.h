@@ -74,6 +74,9 @@ typedef struct {
     // Runtime error message
     char error_msg[512];
     bool had_error;
+
+    // Call depth for vm_call (stop interpreting when frame_count drops to this)
+    int call_depth;
 } VM;
 
 // VM result codes
@@ -97,5 +100,12 @@ InterpretResult vm_interpret(const char* source);
 void vm_push(Value value);
 Value vm_pop(void);
 Value vm_peek(int distance);
+
+// Call a vek closure or native function from C code.
+// Pushes arguments, executes the function, and returns the result.
+// callee must be on the stack already (push it before calling this).
+// args should already be pushed after the callee.
+// Returns the result value (or VAL_NIL on error).
+Value vm_call(Value callee, int arg_count);
 
 #endif // VEK_VM_H
