@@ -355,39 +355,8 @@ static int cmd_run(int argc, char** argv) {
 }
 
 static int cmd_repl(int argc, char** argv) {
-    if (cli_has_flag(argc, argv, "--help")) {
-        printf("Usage: vek repl\n");
-        printf("\n");
-        printf("Start interactive REPL.\n");
-        return 0;
-    }
-
-    vm_init_all(argc, argv);
-
-    char line[4096];
-    printf("vek %s REPL (type 'exit' or Ctrl-D to quit)\n", VEK_VERSION_STRING);
-
-    for (;;) {
-        printf(">> ");
-        fflush(stdout);
-
-        if (!fgets(line, sizeof(line), stdin)) {
-            printf("\n");
-            break;
-        }
-
-        // Check for exit
-        if (strncmp(line, "exit", 4) == 0 && (line[4] == '\n' || line[4] == '\0')) {
-            break;
-        }
-
-        vm_interpret(line);
-    }
-
-    vm_cleanup_all();
-    return 0;
+    return cmd_repl_run(argc, argv);
 }
-
 static int cmd_new(int argc, char** argv) {
     if (cli_has_flag(argc, argv, "--help")) {
         printf("Usage: vek new <project-name> [options]\n");
@@ -456,14 +425,7 @@ static int cmd_fmt(int argc, char** argv) {
 }
 
 static int cmd_shell(int argc, char** argv) {
-    if (cli_has_flag(argc, argv, "--help")) {
-        printf("Usage: vek shell [options]\n");
-        printf("\n");
-        printf("Interactive shell with app context loaded.\n");
-        return 0;
-    }
-    printf("vek shell: not yet implemented\n");
-    return 0;
+    return cmd_shell_run(argc, argv);
 }
 
 static int cmd_migrate(int argc, char** argv) {
