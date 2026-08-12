@@ -18,5 +18,12 @@
       "Use-after-free on EPOLLIN+EPOLLOUT dispatch - handle_read returns closed flag, dispatch breaks before EPOLLOUT",
       "Keep-alive timeout not renewed - re-arm timer after successful request parse in both on_data_vek and on_data"
     ]
+  },
+  "v3_review_fixes": {
+    "status": "completed",
+    "issues_fixed": [
+      "Use-after-free in two-part response write - combined header+body into single buffer in http_response_send to prevent on_write_done from firing between writes",
+      "HttpConnState leak on timeout and peer disconnect - added on_close callback to Connection struct called from event_loop_conn_close, registered cleanup in both accept handlers, freed state in timeout handlers before close"
+    ]
   }
 }
