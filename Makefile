@@ -37,7 +37,9 @@ VEKD_OBJS   := $(patsubst $(VEKD_SRCDIR)/%.c,$(BUILDDIR)/vekd_%.o,$(VEKD_SRCS))
 VEKD_TARGET := $(BUILDDIR)/vekd
 
 # Shared objects used by both vek and vekd
-SHARED_OBJS := $(BUILDDIR)/sqlite3.o $(BUILDDIR)/sha256.o
+SHARED_OBJS := $(BUILDDIR)/sqlite3.o $(BUILDDIR)/sha256.o \
+               $(BUILDDIR)/http_server.o $(BUILDDIR)/event_loop.o \
+               $(BUILDDIR)/router.o $(BUILDDIR)/http_parser.o
 
 .PHONY: all clean debug test test_http test_web_app vekd
 

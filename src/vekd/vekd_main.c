@@ -13,6 +13,8 @@
 #include "vekd_db.h"
 #include "vekd_crypto.h"
 #include "vekd_supervisor.h"
+#include "vekd_web.h"
+#include "../http_server.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -26,7 +28,7 @@
 static VekdDB g_db;
 static VekdSupervisor g_supervisor;
 static uint8_t g_master_key[VEKD_KEY_SIZE];
-static volatile sig_atomic_t g_running = 1;
+static HttpServer g_server;
 
 /* Allow overriding paths for testing */
 static const char *g_data_dir = VEKD_DATA_DIR;
@@ -36,7 +38,7 @@ static int g_port = VEKD_DEFAULT_PORT;
 
 static void signal_handler(int sig) {
     (void)sig;
-    g_running = 0;
+    http_server_stop(&g_server);
 }
 
 static void print_version(void) {
@@ -134,20 +136,42 @@ int main(int argc, char *argv[]) {
         printf("vekd: systemd integration available\n");
     }
 
-    /* Step 5: Start HTTP server (web dashboard) */
+    /* Step 5: Initialize and start HTTP server (web dashboard) */
+    if (!http_server_init(&g_server, g_port)) {
+        fprintf(stderr, "vekd: failed to initialize HTTP server\n");
+        vekd_db_close(&g_db);
+        return 1;
+    }
+
+    /* Setup web UI routes */
+    VekdWebContext web_ctx = {
+        .db = &g_db,
+        .supervisor = &g_supervisor,
+        .master_key = g_master_key,
+        .next_port = VEKD_APP_PORT_MIN
+    };
+    vekd_web_init(&g_server, &web_ctx);
+
     printf("vekd: starting web dashboard on port %d\n", g_port);
     printf("vekd: visit http://localhost:%d to access the dashboard\n", g_port);
 
-    /* Main loop - in full implementation this runs the event loop for HTTP.
-     * For now, just wait for signal to demonstrate the daemon lifecycle. */
-    while (g_running) {
-        /* Check supervised processes */
-        vekd_supervisor_check(&g_supervisor);
-        usleep(100000); /* 100ms tick */
+    /* Check if first boot (no users) */
+    int user_count = vekd_db_user_count(&g_db);
+    if (user_count == 0) {
+        printf("vekd: first boot detected - create your admin account at the login page\n");
+    }
+
+    /* Start the HTTP server event loop (blocks until stop) */
+    if (!http_server_start(&g_server)) {
+        fprintf(stderr, "vekd: failed to start HTTP server on port %d\n", g_port);
+        http_server_destroy(&g_server);
+        vekd_db_close(&g_db);
+        return 1;
     }
 
     /* Shutdown */
     printf("\nvekd: shutting down...\n");
+    http_server_destroy(&g_server);
     vekd_supervisor_shutdown(&g_supervisor);
     vekd_db_close(&g_db);
     printf("vekd: stopped\n");
