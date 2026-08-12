@@ -9,7 +9,7 @@
 vek is a web-first language, runtime, and deployment system packaged as a single binary. The system consists of three main artifacts:
 
 1. **`vek`** - The CLI + runtime. Compiles, runs, formats, REPL.
-2. **`vekd`** - The dashboard/supervisor. Runs as a system service on the target VPS.
+2. **`vekd`** - The dashboard/supervisor. Runs as a system service on the target VPS. Managed entirely via web UI at `:8080`.
 3. **`.vebc`** - The build artifact. Bytecode + assets + metadata.
 
 ---
@@ -272,13 +272,16 @@ VPS (one machine, one systemd service)
 
 ### Deploy Flow
 
-1. vekd clones/pulls the repo
-2. Runs `vek build` to produce `.vebc`
-3. Places artifact in a timestamped release directory
-4. Starts the app via `systemd-run` with cgroup constraints
-5. Waits for `/__ready__` health check
-6. Updates reverse proxy routing table
-7. Optionally purges Cloudflare cache
+The deployment workflow is: SSH once to run the installer, then manage everything via the web dashboard at `:8080`.
+
+1. User triggers deploy from the web UI dashboard
+2. vekd clones/pulls the repo
+3. Runs `vek build` to produce `.vebc`
+4. Places artifact in a timestamped release directory
+5. Starts the app via `systemd-run` with cgroup constraints
+6. Waits for `/__ready__` health check
+7. Updates reverse proxy routing table
+8. Optionally purges Cloudflare cache
 
 ---
 

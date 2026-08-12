@@ -249,7 +249,7 @@
 
 ## Phase 4: vekd Dashboard and Deploy
 
-**Goal:** The `vekd` supervisor binary with web UI, git-based deploys, process management, cgroup isolation, and Cloudflare integration.
+**Goal:** The `vekd` supervisor binary - a web UI-only dashboard for managing production deployments. Users SSH once to install vekd, then manage everything via the web dashboard at `:8080`. No CLI interface beyond the initial install command.
 
 ### Deliverables
 
@@ -279,11 +279,16 @@
 - Health check with 30s timeout
 - Automatic rollback on failed health check
 
-#### 4.5 Web UI
+#### 4.5 Web UI (Primary Interface)
 - HTML + htmx (no client-side framework)
 - Login, dashboard, app management pages
 - Deploy trigger, log tailing, env var management
 - System resource monitoring
+- App creation, deletion, and configuration
+- User management (add/remove users, role assignment)
+- Backup and restore operations
+- Cloudflare DNS and tunnel management
+- All operations that would traditionally require a CLI are performed here
 
 #### 4.6 Cloudflare Integration
 - API token management (encrypted storage)
@@ -291,22 +296,19 @@
 - Cache purge on deploy
 - Optional cloudflared tunnel management
 
-#### 4.7 vekd CLI
-- `vekd init`, `vekd status`, `vekd apps *`, `vekd users *`
-- `vekd cloudflare *`, `vekd backup`, `vekd restore`
-
 ### Dependencies
 - Phase 3 complete
 - Target Linux with cgroup v2 and systemd
 
 ### Success Criteria
 - A fresh VPS can be set up with one `curl | sh` command
-- Apps deploy from git repos with one click or CLI command
+- Apps deploy from git repos via the web dashboard
 - Apps are isolated (cannot read each other's data)
 - Crashed apps are automatically restarted
 - Rollback works within seconds
 - Cloudflare DNS is configured automatically
-- vekd web UI is functional for all common operations
+- vekd web UI at :8080 is the sole management interface for all operations
+- The deployment workflow is: SSH once to install, then manage everything via web UI
 
 ---
 
