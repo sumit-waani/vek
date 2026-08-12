@@ -26,6 +26,12 @@ void stdlib_session_init(ObjMap* pkg);
 void stdlib_csrf_init(ObjMap* pkg);
 void stdlib_form_init(ObjMap* pkg);
 void stdlib_pages_init(ObjMap* pkg);
+void stdlib_auth_init(ObjMap* pkg);
+void stdlib_slug_init(ObjMap* pkg);
+void stdlib_csp_init(ObjMap* pkg);
+void stdlib_cors_init(ObjMap* pkg);
+void stdlib_i18n_init(ObjMap* pkg);
+void stdlib_ratelimit_init(ObjMap* pkg);
 
 // Helper: register a native function into a package map
 void stdlib_register(ObjMap* pkg, const char* name, NativeFn fn, int arity);

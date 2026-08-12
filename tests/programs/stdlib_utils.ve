@@ -1,0 +1,45 @@
+# Test slug package
+print(slug.make("Hello World!"))
+print(slug.make("  Multiple   Spaces  "))
+print(slug.make("Already-Valid"))
+print(slug.make("CamelCase123Test"))
+print(slug.make("---leading-and-trailing---"))
+print(slug.make("special!@#chars$%^here"))
+
+# Test CSP package
+directives = {default_src: "'self'", script_src: "'self' cdn.example.com"}
+csp_header = csp.build(directives)
+print(len(csp_header) > 0)
+
+# Test CSP nonce
+nonce = csp.nonce()
+print(len(nonce) > 0)
+
+# Test CORS package
+config = {origin: "https://example.com", methods: "GET, POST", credentials: true}
+hdrs = cors.headers(config)
+print(hdrs["Access-Control-Allow-Origin"])
+print(hdrs["Access-Control-Allow-Methods"])
+print(hdrs["Access-Control-Allow-Credentials"])
+
+# Test CORS preflight
+request = {method: "OPTIONS", origin: "https://example.com"}
+preflight_hdrs = cors.preflight(request, config)
+print(preflight_hdrs["Access-Control-Allow-Origin"])
+
+# Test i18n package
+en_translations = {greeting: "Hello", farewell: "Goodbye"}
+fr_translations = {greeting: "Bonjour", farewell: "Au revoir"}
+i18n.load("en", en_translations)
+i18n.load("fr", fr_translations)
+i18n.set_locale("en")
+print(i18n.t("greeting"))
+print(i18n.t("farewell"))
+print(i18n.t("greeting", "fr"))
+i18n.set_locale("fr")
+print(i18n.t("farewell"))
+
+# Test ratelimit package
+result = ratelimit.check("user:123", 5, 1)
+print(result.allowed)
+print(result.remaining)

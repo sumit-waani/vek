@@ -1,0 +1,24 @@
+# Test auth package
+
+# Test hash returns a non-empty string
+hash = auth.hash("mypassword")
+print(len(hash) > 0)
+
+# Test verify with correct password
+print(auth.verify("mypassword", hash))
+
+# Test verify with wrong password
+print(auth.verify("wrongpassword", hash))
+
+# Test random_token returns hex string of correct length
+token = auth.random_token(16)
+print(len(token))
+
+# Test random_token with different size
+token2 = auth.random_token(8)
+print(len(token2))
+
+# Test two tokens are different
+token_a = auth.random_token(16)
+token_b = auth.random_token(16)
+print(token_a != token_b)

@@ -1,0 +1,7 @@
+{
+  "task_id": "task-phase2-stdlib-completion",
+  "task_description": "Complete Phase 2 stdlib: implement all remaining packages (auth, http client, mail, jobs, storage, websocket, ratelimit, compress, i18n, webhook, markdown, sanitize, csp, slug, cors, cli) and flash integration with view rendering",
+  "status": "in_progress",
+  "feature_order": ["FEAT-001", "FEAT-002", "FEAT-003", "FEAT-004"],
+  "blocked_reason": null
+}

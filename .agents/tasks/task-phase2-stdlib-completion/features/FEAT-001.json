@@ -1,0 +1,35 @@
+{
+  "id": "FEAT-001",
+  "type": "feat",
+  "description": "Implement auth, slug, csp, cors, i18n, and ratelimit packages - simple utility packages with no external dependencies",
+  "status": "in_progress",
+  "steps": [
+    "Create src/stdlib_auth.c with: auth.hash(password) using bcrypt (simplified implementation with Blowfish from scratch or using the existing SHA-256 as PBKDF2-SHA256 for password hashing), auth.verify(password, hash) for verification, auth.random_token(n) generating a hex string of n random bytes from /dev/urandom. Follow the pattern in src/stdlib_crypto.c for /dev/urandom usage.",
+    "Create src/stdlib_slug.c with: slug.make(string) that lowercases, replaces non-alphanumeric with hyphens, trims leading/trailing hyphens, collapses multiple hyphens. Handle basic ASCII transliteration for common accented chars.",
+    "Create src/stdlib_csp.c with: csp.build(map) that takes a map of directives (default_src, script_src, style_src, img_src, etc.) and returns a Content-Security-Policy header string. csp.nonce() that returns a random base64 nonce.",
+    "Create src/stdlib_cors.c with: cors.headers(map) that takes config (origin, methods, headers, credentials, max_age) and returns a map of CORS response headers. cors.preflight(request_map, config_map) that returns headers for OPTIONS preflight.",
+    "Create src/stdlib_i18n.c with: i18n.load(map) to load translations (locale -> key -> value nested map), i18n.t(key) and i18n.t(key, locale) for translation lookup, i18n.set_locale(locale) to set current locale. Use a pinned global ObjMap for storage.",
+    "Create src/stdlib_ratelimit.c with: ratelimit.check(key, max_tokens, refill_rate) implementing token bucket algorithm. Returns a map {allowed: bool, remaining: int, reset_at: int}. Use a pinned global ObjMap keyed by string to track per-key state with timestamps.",
+    "Add all 6 init function declarations to src/vek_stdlib.h",
+    "Add all 6 package registrations to src/vek_stdlib.c in stdlib_init() using create_package()",
+    "Create integration test tests/programs/stdlib_auth.ve + .expected testing hash/verify/random_token",
+    "Create integration test tests/programs/stdlib_utils.ve + .expected testing slug, csp, cors, i18n, ratelimit",
+    "Run 'make clean && make' to verify compilation, then 'make test' to verify all tests pass"
+  ],
+  "acceptance_criteria": [
+    "make clean && make compiles without errors",
+    "make test passes all existing tests plus new integration tests",
+    "auth.hash returns a string, auth.verify(password, hash) returns true for correct password and false for wrong password",
+    "slug.make('Hello World!') returns 'hello-world'",
+    "csp.build returns a valid CSP header string",
+    "cors.headers returns a map with Access-Control-Allow-Origin etc.",
+    "i18n.t returns translated string after loading translations",
+    "ratelimit.check returns map with allowed field"
+  ],
+  "verification": [
+    "make clean && make",
+    "make test"
+  ],
+  "blocked_reason": null,
+  "findings": ""
+}

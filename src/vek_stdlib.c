@@ -80,4 +80,22 @@ void stdlib_init(void) {
 
     ObjMap* pages_pkg = create_package("pages");
     stdlib_pages_init(pages_pkg);
+
+    ObjMap* auth_pkg = create_package("auth");
+    stdlib_auth_init(auth_pkg);
+
+    ObjMap* slug_pkg = create_package("slug");
+    stdlib_slug_init(slug_pkg);
+
+    ObjMap* csp_pkg = create_package("csp");
+    stdlib_csp_init(csp_pkg);
+
+    ObjMap* cors_pkg = create_package("cors");
+    stdlib_cors_init(cors_pkg);
+
+    ObjMap* i18n_pkg = create_package("i18n");
+    stdlib_i18n_init(i18n_pkg);
+
+    ObjMap* ratelimit_pkg = create_package("ratelimit");
+    stdlib_ratelimit_init(ratelimit_pkg);
 }
