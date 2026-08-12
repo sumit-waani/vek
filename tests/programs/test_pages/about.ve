@@ -1,0 +1,2 @@
+# About page
+print("loaded: /about")

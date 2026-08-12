@@ -77,4 +77,7 @@ void stdlib_init(void) {
 
     ObjMap* form_pkg = create_package("form");
     stdlib_form_init(form_pkg);
+
+    ObjMap* pages_pkg = create_package("pages");
+    stdlib_pages_init(pages_pkg);
 }

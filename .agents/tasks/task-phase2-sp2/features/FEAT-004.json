@@ -2,7 +2,7 @@
   "id": "FEAT-004",
   "type": "feat",
   "description": "File-based routing - scan pages/ directory at startup, map filenames to routes automatically. This builds on top of the existing router and server infrastructure.",
-  "status": "pending",
+  "status": "in_progress",
   "steps": [
     "Create src/stdlib_pages.c implementing the pages/file-based routing system. At startup (when server.listen is called or via a pages.scan() function), recursively scan a pages/ directory relative to the script being run.",
     "Implement the directory scanning: use opendir/readdir/closedir to recursively walk pages/. For each .ve file found, compute the route path: pages/index.ve -> /, pages/about.ve -> /about, pages/posts/index.ve -> /posts, pages/posts/[id].ve -> /posts/:id (convert [param] to :param).",
