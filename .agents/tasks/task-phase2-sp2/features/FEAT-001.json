@@ -2,7 +2,7 @@
   "id": "FEAT-001",
   "type": "feat",
   "description": "SQLite database package (db) - Download SQLite amalgamation and implement the db stdlib package with query, row, exec, scalar, and transaction support. This is the foundation other features (sessions) may depend on.",
-  "status": "in_progress",
+  "status": "completed",
   "steps": [
     "Download SQLite amalgamation (sqlite3.c + sqlite3.h) from https://www.sqlite.org/2024/sqlite-amalgamation-3450000.zip and place sqlite3.c and sqlite3.h into src/ directory. The Makefile wildcard will auto-compile it.",
     "Create src/stdlib_db.c implementing the db package with these native functions: db.open(path) - opens SQLite DB in WAL mode; db.query(sql, params...) - returns list of maps (one map per row, column names as keys); db.row(sql, params...) - returns first row as map or nil; db.exec(sql, params...) - executes statement, returns last insert rowid as int; db.scalar(sql, params...) - returns first column of first row as a value; db.close() - closes the database connection.",
@@ -27,5 +27,5 @@
     "make test"
   ],
   "blocked_reason": null,
-  "findings": ""
+  "findings": "SQLite amalgamation 3.45.0 compiled cleanly with -O2 and SQLITE_THREADSAFE=1. All unit tests pass (15/15 for test_db). Integration test stdlib_db passes. No pre-existing test failures encountered (control_flow and variables pass now contrary to earlier notes). The Makefile compiles sqlite3.c with a separate rule to avoid -Wall -Wextra -Wpedantic warnings. Linker flags -lpthread -ldl added for both main binary and test binaries. The db_conn is a global static - only one connection at a time is supported."
 }
