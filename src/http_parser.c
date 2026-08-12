@@ -7,6 +7,9 @@
 #include <string.h>
 #include <ctype.h>
 
+// Maximum allowed request body size (1 MB)
+#define MAX_BODY_SIZE (1024 * 1024)
+
 // Case-insensitive comparison of fixed-length strings
 static bool strncasecmp_eq(const char* a, uint32_t alen,
                            const char* b, uint32_t blen) {
@@ -176,6 +179,10 @@ HttpParseResult http_parse_request(const char* buf, size_t len, HttpRequest* req
                     req->content_length = req->content_length * 10 +
                                           (size_t)(h->value[j] - '0');
                 }
+            }
+            // Reject requests with body larger than MAX_BODY_SIZE
+            if (req->content_length > MAX_BODY_SIZE) {
+                return HTTP_PARSE_ERROR;
             }
         }
         if (strncasecmp_eq(h->name, h->name_len, "connection", 10)) {

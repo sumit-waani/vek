@@ -38,6 +38,7 @@ struct Connection {
     Buffer      write_buf;
     size_t      write_offset;  // How much of write_buf has been sent
     void*       userdata;
+    void*       epoll_data;    // Owned EpollData pointer (reused across MODs)
 
     // Callbacks
     DataCallback      on_data;
@@ -61,6 +62,7 @@ typedef struct Listener {
     int              fd;
     AcceptCallback   on_accept;
     void*            userdata;
+    void*            epoll_data;  // Owned EpollData pointer
     struct Listener* next;
 } Listener;
 
@@ -72,6 +74,7 @@ struct EventLoop {
     // Active connections (doubly-linked list)
     Connection*  conn_head;
     int          conn_count;
+    int          max_connections;  // Max allowed connections (0 = unlimited)
 
     // Listeners
     Listener*    listener_head;

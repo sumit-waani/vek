@@ -21,6 +21,7 @@
 
 #define INITIAL_BUF_CAP  4096
 #define MAX_EVENTS       64
+#define DEFAULT_MAX_CONNECTIONS 1024
 
 // ---- Internal helpers ----
 
@@ -90,6 +91,7 @@ bool event_loop_init(EventLoop* loop) {
     loop->running = false;
     loop->conn_head = NULL;
     loop->conn_count = 0;
+    loop->max_connections = DEFAULT_MAX_CONNECTIONS;
     loop->listener_head = NULL;
     loop->timer_head = NULL;
     return true;
@@ -103,6 +105,7 @@ void event_loop_destroy(EventLoop* loop) {
         if (conn->fd >= 0) close(conn->fd);
         buffer_free(&conn->read_buf);
         buffer_free(&conn->write_buf);
+        free(conn->epoll_data);
         free(conn);
         conn = next;
     }
@@ -114,6 +117,7 @@ void event_loop_destroy(EventLoop* loop) {
     while (lis) {
         Listener* next = lis->next;
         if (lis->fd >= 0) close(lis->fd);
+        free(lis->epoll_data);
         free(lis);
         lis = next;
     }
@@ -178,6 +182,7 @@ bool event_loop_listen(EventLoop* loop, int port,
     lis->fd = sockfd;
     lis->on_accept = on_accept;
     lis->userdata = userdata;
+    lis->epoll_data = NULL;
     lis->next = loop->listener_head;
     loop->listener_head = lis;
 
@@ -188,6 +193,7 @@ bool event_loop_listen(EventLoop* loop, int port,
         free(lis);
         return false;
     }
+    lis->epoll_data = ed;
 
     struct epoll_event ev;
     ev.events = EPOLLIN | EPOLLET;
@@ -215,6 +221,7 @@ static Connection* connection_new(int fd) {
     buffer_init(&conn->write_buf);
     conn->write_offset = 0;
     conn->userdata = NULL;
+    conn->epoll_data = NULL;
     conn->on_data = NULL;
     conn->on_write_done = NULL;
     conn->next = NULL;
@@ -249,6 +256,18 @@ static void connection_unlink(EventLoop* loop, Connection* conn) {
 static void handle_accept(EventLoop* loop, Listener* lis) {
     // Edge-triggered: must accept all pending connections
     for (;;) {
+        // Check connection limit before accepting
+        if (loop->max_connections > 0 && loop->conn_count >= loop->max_connections) {
+            // At capacity - accept and immediately close to drain the queue
+            struct sockaddr_in client_addr;
+            socklen_t addr_len = sizeof(client_addr);
+            int client_fd = accept(lis->fd, (struct sockaddr*)&client_addr, &addr_len);
+            if (client_fd >= 0) {
+                close(client_fd);
+            }
+            break;
+        }
+
         struct sockaddr_in client_addr;
         socklen_t addr_len = sizeof(client_addr);
         int client_fd = accept(lis->fd, (struct sockaddr*)&client_addr, &addr_len);
@@ -258,6 +277,10 @@ static void handle_accept(EventLoop* loop, Listener* lis) {
                 break;  // No more pending connections
             }
             if (errno == EINTR) continue;
+            if (errno == EMFILE || errno == ENFILE) {
+                // File descriptor exhaustion - stop accepting for now
+                break;
+            }
             break;  // Other error, stop accepting
         }
 
@@ -275,17 +298,20 @@ static void handle_accept(EventLoop* loop, Listener* lis) {
         connection_link(loop, conn);
 
         // Register with epoll for reading (edge-triggered)
+        // Store EpollData on the connection for reuse across MODs
         EpollData* ed = epoll_data_new(TAG_CONNECTION, conn);
         if (!ed) {
             event_loop_conn_close(loop, conn);
             continue;
         }
+        conn->epoll_data = ed;
 
         struct epoll_event ev;
         ev.events = EPOLLIN | EPOLLET;
         ev.data.ptr = ed;
 
         if (epoll_ctl(loop->epoll_fd, EPOLL_CTL_ADD, client_fd, &ev) == -1) {
+            conn->epoll_data = NULL;
             free(ed);
             event_loop_conn_close(loop, conn);
             continue;
@@ -375,9 +401,11 @@ static void handle_write(EventLoop* loop, Connection* conn, EpollData* ed) {
         conn->state = CONN_READING;
 
         // Remove EPOLLOUT interest, keep EPOLLIN
+        // Reuse the EpollData stored on the connection
+        EpollData* conn_ed = (EpollData*)conn->epoll_data;
         struct epoll_event ev;
         ev.events = EPOLLIN | EPOLLET;
-        ev.data.ptr = ed;
+        ev.data.ptr = conn_ed ? conn_ed : ed;
         epoll_ctl(loop->epoll_fd, EPOLL_CTL_MOD, conn->fd, &ev);
 
         // Call write-done callback
@@ -448,33 +476,20 @@ bool event_loop_conn_write(EventLoop* loop, Connection* conn,
     }
 
     // Need to register EPOLLOUT to continue writing later
-    // Find the EpollData for this connection - we need to update epoll
-    // We re-register with EPOLLIN | EPOLLOUT | EPOLLET
-    // We need the EpollData pointer - store it on the connection
-    // Actually, for simplicity we use EPOLL_CTL_MOD with a temporary struct
-    // We need to find the existing EpollData or create a mechanism to track it.
-    // Simpler approach: store the EpollData on the connection itself.
-    // For now, let's just do a MOD with a newly created ptr - but that leaks.
-    // Better: we will store epoll_data pointer in an unused field or allocate once.
-
-    // Actually the simplest correct approach: we'll find the connection's EpollData
-    // by doing EPOLL_CTL_MOD. Since we already have the fd, we just need a valid ptr.
-    // The EpollData is already registered; we just re-mod with the same semantics.
-    // We can't easily get the existing EpollData here, so let's allocate a new one
-    // and accept that we leak the old one. Better solution: store ed on Connection.
-
-    // Let's just modify events - epoll only cares about the fd matching.
-    // Actually on Linux, EPOLL_CTL_MOD requires the event struct but the data.ptr
-    // can be anything we want. We'll allocate a new EpollData:
-    EpollData* ed = epoll_data_new(TAG_CONNECTION, conn);
-    if (!ed) return false;
+    // Reuse the EpollData already stored on the connection
+    EpollData* ed = (EpollData*)conn->epoll_data;
+    if (!ed) {
+        // Shouldn't happen, but handle gracefully
+        ed = epoll_data_new(TAG_CONNECTION, conn);
+        if (!ed) return false;
+        conn->epoll_data = ed;
+    }
 
     struct epoll_event ev;
     ev.events = EPOLLIN | EPOLLOUT | EPOLLET;
     ev.data.ptr = ed;
 
     if (epoll_ctl(loop->epoll_fd, EPOLL_CTL_MOD, conn->fd, &ev) == -1) {
-        free(ed);
         return false;
     }
 
@@ -491,6 +506,12 @@ void event_loop_conn_close(EventLoop* loop, Connection* conn) {
         epoll_ctl(loop->epoll_fd, EPOLL_CTL_DEL, conn->fd, NULL);
         close(conn->fd);
         conn->fd = -1;
+    }
+
+    // Free the owned EpollData
+    if (conn->epoll_data) {
+        free(conn->epoll_data);
+        conn->epoll_data = NULL;
     }
 
     conn->state = CONN_CLOSED;
@@ -605,8 +626,8 @@ void event_loop_run(EventLoop* loop) {
                 case TAG_CONNECTION: {
                     Connection* conn = (Connection*)ed->ptr;
                     if (ev_flags & (EPOLLERR | EPOLLHUP)) {
+                        // EpollData is freed inside event_loop_conn_close
                         event_loop_conn_close(loop, conn);
-                        free(ed);
                         break;
                     }
                     if (ev_flags & EPOLLIN) {

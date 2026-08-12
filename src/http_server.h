@@ -17,6 +17,7 @@ typedef void (*HttpHandlerFn)(HttpServer* server, Connection* conn,
 typedef struct {
     bool        keep_alive;
     HttpServer* server;
+    Timer*      timeout;       // Request timeout timer (NULL if not set)
 } HttpConnState;
 
 // HTTP server
@@ -24,6 +25,7 @@ struct HttpServer {
     EventLoop  loop;
     Router     router;
     int        port;
+    uint64_t   request_timeout_ms;  // Per-connection request timeout (0 = disabled)
 
     // User-level handler and userdata
     HttpHandlerFn handler;

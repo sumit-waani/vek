@@ -12,6 +12,9 @@
 #include <string.h>
 #include <time.h>
 
+// Default request timeout (30 seconds)
+#define DEFAULT_REQUEST_TIMEOUT_MS 30000
+
 // ---- Response formatting ----
 
 static const char* status_text_for(int status) {
@@ -87,12 +90,32 @@ static void send_404(HttpServer* server, Connection* conn, bool keep_alive) {
 
 // ---- Connection callbacks ----
 
+// Timeout callback: close connection if request not received in time
+static void on_request_timeout(EventLoop* loop, void* userdata) {
+    Connection* conn = (Connection*)userdata;
+    if (!conn || conn->state == CONN_CLOSED) return;
+
+    HttpConnState* state = (HttpConnState*)conn->userdata;
+    if (state) {
+        state->timeout = NULL; // Timer already fired and was freed
+    }
+
+    // Send 408 Request Timeout and close
+    // We need access to the server to send a response, but we can just close
+    event_loop_conn_close(loop, conn);
+}
+
 static void on_write_done(EventLoop* loop, Connection* conn, void* userdata) {
     (void)loop;
     HttpConnState* state = (HttpConnState*)userdata;
     if (!state) return;
 
     if (!state->keep_alive) {
+        // Cancel timeout if active
+        if (state->timeout) {
+            event_loop_cancel_timer(loop, state->timeout);
+            state->timeout = NULL;
+        }
         // Close after response
         free(state);
         conn->userdata = NULL;
@@ -116,6 +139,12 @@ static void on_data(EventLoop* loop, Connection* conn, void* userdata) {
     if (result == HTTP_PARSE_INCOMPLETE) {
         // Wait for more data
         return;
+    }
+
+    // Request received (or error) - cancel the timeout
+    if (state->timeout) {
+        event_loop_cancel_timer(loop, state->timeout);
+        state->timeout = NULL;
     }
 
     if (result == HTTP_PARSE_ERROR) {
@@ -166,10 +195,17 @@ static void on_accept(EventLoop* loop, Connection* conn, void* userdata) {
 
     state->keep_alive = true;
     state->server = server;
+    state->timeout = NULL;
 
     conn->userdata = state;
     conn->on_data = on_data;
     conn->on_write_done = on_write_done;
+
+    // Set request timeout if configured
+    if (server->request_timeout_ms > 0) {
+        state->timeout = event_loop_add_timer(loop, server->request_timeout_ms,
+                                              on_request_timeout, conn);
+    }
 }
 
 // ---- Public API ----
@@ -179,6 +215,7 @@ bool http_server_init(HttpServer* server, int port) {
     server->port = port;
     server->handler = NULL;
     server->handler_userdata = NULL;
+    server->request_timeout_ms = DEFAULT_REQUEST_TIMEOUT_MS;
 
     router_init(&server->router);
 

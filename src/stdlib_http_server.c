@@ -153,9 +153,16 @@ static Value build_request_map(HttpRequest* req, RouteParams* params) {
     gc_push_root(OBJ_VAL(headers_map));
     for (int i = 0; i < req->header_count; i++) {
         // Lowercase the header name for consistency
-        char name_buf[256];
         uint32_t nlen = req->headers[i].name_len;
-        if (nlen >= sizeof(name_buf)) nlen = sizeof(name_buf) - 1;
+        char stack_buf[256];
+        char* name_buf = stack_buf;
+
+        // Use heap allocation for unusually long header names
+        if (nlen >= sizeof(stack_buf)) {
+            name_buf = malloc(nlen + 1);
+            if (!name_buf) continue; // skip this header on alloc failure
+        }
+
         for (uint32_t j = 0; j < nlen; j++) {
             name_buf[j] = (char)tolower((unsigned char)req->headers[i].name[j]);
         }
@@ -165,6 +172,10 @@ static Value build_request_map(HttpRequest* req, RouteParams* params) {
         ObjString* hval = obj_string_new(req->headers[i].value,
                                          req->headers[i].value_len);
         obj_map_set(headers_map, hname, OBJ_VAL(hval));
+
+        if (name_buf != stack_buf) {
+            free(name_buf);
+        }
     }
     ObjString* headers_key = obj_string_new("headers", 7);
     obj_map_set(rmap, headers_key, OBJ_VAL(headers_map));
@@ -205,6 +216,18 @@ static void vek_http_handler(HttpServer* server, Connection* conn,
     Value result = vm_call(entry->closure, 1);
 
     gc_pop_root(); // req_map
+
+    // Check if the handler had a runtime error
+    if (vm.had_error) {
+        // Reset the error state so subsequent requests can proceed
+        vm.had_error = false;
+        vm.error_msg[0] = '\0';
+
+        const char* err_body = "500 Internal Server Error";
+        http_response_send(server, conn, 500, "Internal Server Error",
+                           "text/plain", err_body, strlen(err_body), req->keep_alive);
+        return;
+    }
 
     // Process the result
     bool keep_alive = req->keep_alive;
@@ -253,7 +276,7 @@ static void vek_http_handler(HttpServer* server, Connection* conn,
         http_response_send(server, conn, status, NULL, content_type,
                            body, body_len, keep_alive);
     } else {
-        // Nil or other: send empty 200
+        // Nil or other: send empty 200 (handler returned no explicit response)
         http_response_send(server, conn, 200, "OK", "text/plain",
                            "", 0, keep_alive);
     }
@@ -265,6 +288,19 @@ static void sigint_handler(int sig) {
     if (g_server_initialized) {
         http_server_stop(&g_server);
     }
+}
+
+// Timeout callback for vek HTTP server connections
+static void on_timeout_vek(EventLoop* loop, void* userdata) {
+    Connection* conn = (Connection*)userdata;
+    if (!conn || conn->state == CONN_CLOSED) return;
+
+    HttpConnState* state = (HttpConnState*)conn->userdata;
+    if (state) {
+        state->timeout = NULL; // Timer already fired and was freed
+    }
+
+    event_loop_conn_close(loop, conn);
 }
 
 // Accept callback for vek HTTP server
@@ -279,10 +315,17 @@ static void on_accept_vek(EventLoop* loop, Connection* conn, void* userdata) {
 
     state->keep_alive = true;
     state->server = server;
+    state->timeout = NULL;
 
     conn->userdata = state;
     conn->on_data = on_data_vek;
     conn->on_write_done = on_write_done_vek;
+
+    // Set request timeout if configured
+    if (server->request_timeout_ms > 0) {
+        state->timeout = event_loop_add_timer(loop, server->request_timeout_ms,
+                                              on_timeout_vek, conn);
+    }
 }
 
 // Write done callback
@@ -291,6 +334,10 @@ static void on_write_done_vek(EventLoop* loop, Connection* conn, void* userdata)
     if (!state) return;
 
     if (!state->keep_alive) {
+        if (state->timeout) {
+            event_loop_cancel_timer(loop, state->timeout);
+            state->timeout = NULL;
+        }
         free(state);
         conn->userdata = NULL;
         event_loop_conn_close(loop, conn);
@@ -312,6 +359,12 @@ static void on_data_vek(EventLoop* loop, Connection* conn, void* userdata) {
 
     if (result == HTTP_PARSE_INCOMPLETE) {
         return;
+    }
+
+    // Request received (or error) - cancel the timeout
+    if (state->timeout) {
+        event_loop_cancel_timer(loop, state->timeout);
+        state->timeout = NULL;
     }
 
     if (result == HTTP_PARSE_ERROR) {
@@ -376,6 +429,7 @@ static Value native_server_listen(int arg_count, Value* args) {
     g_server.router = saved_router;
     g_server.handler = NULL;
     g_server.handler_userdata = NULL;
+    g_server.request_timeout_ms = 30000; // 30 second request timeout
     g_server_initialized = true;
 
     http_server_set_handler(&g_server, vek_http_handler, NULL);
