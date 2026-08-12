@@ -68,6 +68,7 @@ static ObjMap* parse_form_body(const char* body, size_t body_len) {
 
         ObjString* key = obj_string_new(key_buf, (uint32_t)key_len);
         free(key_buf);
+        gc_push_root(OBJ_VAL(key)); // root key before allocating value
 
         // Decode value
         Value value = OBJ_VAL(obj_string_new("", 0));
@@ -81,6 +82,7 @@ static ObjMap* parse_form_body(const char* body, size_t body_len) {
         }
 
         obj_map_set(map, key, value);
+        gc_pop_root(); // key
 
         pos = amp + 1;
         if (amp >= end) break;
