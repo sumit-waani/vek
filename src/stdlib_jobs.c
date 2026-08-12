@@ -431,6 +431,15 @@ static Value native_jobs_run_one(int argc, Value* args) {
     return VAL_TRUE;
 }
 
+// jobs.clear() - delete all jobs (for testing)
+static Value native_jobs_clear(int argc, Value* args) {
+    (void)argc; (void)args;
+    if (!ensure_table()) return VAL_NIL;
+
+    sqlite3_exec(jobs_db, "DELETE FROM _vek_jobs", NULL, NULL, NULL);
+    return VAL_TRUE;
+}
+
 // jobs.pending() - count of pending jobs
 static Value native_jobs_pending(int argc, Value* args) {
     (void)argc; (void)args;
@@ -456,4 +465,5 @@ void stdlib_jobs_init(ObjMap* pkg) {
     stdlib_register(pkg, "process", native_jobs_process, 2);
     stdlib_register(pkg, "run_one", native_jobs_run_one, 0);
     stdlib_register(pkg, "pending", native_jobs_pending, 0);
+    stdlib_register(pkg, "clear", native_jobs_clear, 0);
 }

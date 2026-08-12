@@ -1,5 +1,8 @@
 # Test jobs package
 
+# Clear any leftover jobs from previous runs
+jobs.clear()
+
 # Test pending count starts at 0
 print(jobs.pending())
 
