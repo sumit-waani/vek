@@ -2,7 +2,7 @@
   "id": "FEAT-002",
   "type": "feat",
   "description": "Implement the core infrastructure: build system (Makefile), common headers (value representation with NaN-boxing, object types), memory management (GC with mark-and-sweep, 16KB heap pages), and the basic object system (strings, lists, maps). This is the foundation everything else builds on.",
-  "status": "in_progress",
+  "status": "completed",
   "steps": [
     "Create /projects/sandbox/vek/Makefile with targets: all (build), test (run tests), clean, and debug (build with -g -O0). Use clang with -std=c11 -Wall -Wextra -O2 for release. Output binary to build/vek. Compile all src/*.c files.",
     "Create /projects/sandbox/vek/src/common.h with standard includes (stdio, stdlib, string, stdint, stdbool, stddef, assert), utility macros (GROW_CAPACITY, GROW_ARRAY, FREE_ARRAY), and forward declarations of key types.",
@@ -25,5 +25,5 @@
     "Run 'make test' and confirm all unit tests pass (tests for value encoding, object allocation, GC)"
   ],
   "blocked_reason": null,
-  "findings": ""
+  "findings": "IS_FLOAT macro required comparing against QNAN_BITS (0x7FF8...) not QNAN_MASK (0xFFF8...). GC tests need cleanup collections between tests to handle leftover objects from previous test's unpin operations. All 48 tests pass. Build is warning-free with -Wall -Wextra -Wpedantic."
 }
