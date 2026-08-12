@@ -5,6 +5,9 @@
 #include <ctype.h>
 
 // ---- Form state ----
+// NOTE: These are process-global mutable statics. The current design assumes
+// single-request-at-a-time processing. Concurrent or pipelined request
+// handling would require per-request context objects instead.
 static ObjMap* form_parsed = NULL;     // last parsed form data
 static ObjList* form_error_list = NULL; // validation errors
 static bool form_is_valid = true;
@@ -149,6 +152,12 @@ static Value native_form_parse(int argc, Value* args) {
 
     ObjString* body = AS_STRING(args[0]);
     ObjMap* parsed = parse_form_body(body->data, body->length);
+
+    // Unpin old form_parsed before replacing to avoid pin leak
+    if (form_parsed) {
+        vm_unpin((ObjHeader*)form_parsed);
+    }
+
     vm_pin((ObjHeader*)parsed);
 
     // Store as form_parsed
@@ -166,10 +175,20 @@ static Value native_form_validate(int argc, Value* args) {
     ObjMap* data = AS_MAP(args[0]);
     ObjMap* rules = AS_MAP(args[1]);
 
+    // Unpin old error list before replacing to avoid pin leak
+    if (form_error_list) {
+        vm_unpin((ObjHeader*)form_error_list);
+    }
+
     // Reset errors
     form_error_list = obj_list_new();
     vm_pin((ObjHeader*)form_error_list);
     form_is_valid = true;
+
+    // Unpin old form_parsed before replacing to avoid pin leak
+    if (form_parsed) {
+        vm_unpin((ObjHeader*)form_parsed);
+    }
 
     // Store as form_parsed
     form_parsed = data;
@@ -192,7 +211,7 @@ static Value native_form_validate(int argc, Value* args) {
         // Check 'required'
         ObjString* req_key = obj_string_new("required", 8);
         Value req_val;
-        if (obj_map_get(rule, req_key, &req_val) && AS_BOOL(req_val)) {
+        if (obj_map_get(rule, req_key, &req_val) && IS_BOOL(req_val) && AS_BOOL(req_val)) {
             if (!has_field || !IS_STRING(field_val) || AS_STRING(field_val)->length == 0) {
                 add_error(field_name->data, field_name->length, "is required");
                 form_is_valid = false;

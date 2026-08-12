@@ -4,6 +4,9 @@
 #include "sqlite3.h"
 
 // Global database connection
+// NOTE: This is process-global mutable state. The current design assumes
+// single-request-at-a-time processing. Concurrent or pipelined request
+// handling would require per-request context objects instead.
 static sqlite3* db_conn = NULL;
 
 // Helper: bind parameters to a prepared statement
@@ -73,10 +76,12 @@ static Value build_row_map(sqlite3_stmt* stmt) {
     for (int i = 0; i < col_count; i++) {
         const char* col_name = sqlite3_column_name(stmt, i);
         ObjString* key = obj_string_new(col_name, (uint32_t)strlen(col_name));
+        gc_push_root(OBJ_VAL(key)); // root key before allocating value
         Value val = read_column(stmt, i);
         gc_push_root(val);
         obj_map_set(map, key, val);
         gc_pop_root(); // val
+        gc_pop_root(); // key
     }
 
     gc_pop_root(); // map

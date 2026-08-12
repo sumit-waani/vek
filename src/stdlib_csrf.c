@@ -93,14 +93,33 @@ static Value native_csrf_validate(int argc, Value* args) {
     if (!IS_STRING(stored)) return BOOL_VAL(false);
     ObjString* stored_str = AS_STRING(stored);
 
-    // Constant-time comparison
-    if (provided->length != stored_str->length) return BOOL_VAL(false);
+    // Constant-time comparison: always compare exactly 64 bytes (the expected
+    // token length) to avoid leaking token length via timing side-channel.
+    // Treat shorter inputs as if padded with 0x00 (which will never match
+    // valid hex characters), so they always fail without revealing length info.
+    #define CSRF_TOKEN_LEN 64
+    uint8_t provided_buf[CSRF_TOKEN_LEN];
+    uint8_t stored_buf[CSRF_TOKEN_LEN];
 
+    memset(provided_buf, 0, CSRF_TOKEN_LEN);
+    memset(stored_buf, 0, CSRF_TOKEN_LEN);
+
+    size_t provided_copy = provided->length < CSRF_TOKEN_LEN ? provided->length : CSRF_TOKEN_LEN;
+    size_t stored_copy = stored_str->length < CSRF_TOKEN_LEN ? stored_str->length : CSRF_TOKEN_LEN;
+
+    memcpy(provided_buf, provided->data, provided_copy);
+    memcpy(stored_buf, stored_str->data, stored_copy);
+
+    // Length mismatch contributes to diff but does not short-circuit
     int diff = 0;
-    for (uint32_t i = 0; i < provided->length; i++) {
-        diff |= provided->data[i] ^ stored_str->data[i];
+    diff |= (provided->length != CSRF_TOKEN_LEN);
+    diff |= (stored_str->length != CSRF_TOKEN_LEN);
+
+    for (int i = 0; i < CSRF_TOKEN_LEN; i++) {
+        diff |= provided_buf[i] ^ stored_buf[i];
     }
     return BOOL_VAL(diff == 0);
+    #undef CSRF_TOKEN_LEN
 }
 
 // csrf.tag() - returns HTML hidden input: <input type="hidden" name="_csrf" value="TOKEN">

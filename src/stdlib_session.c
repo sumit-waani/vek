@@ -6,6 +6,9 @@
 #include <unistd.h>
 
 // ---- Session state ----
+// NOTE: These are process-global mutable statics. The current design assumes
+// single-request-at-a-time processing. Concurrent or pipelined request
+// handling would require per-request context objects instead.
 static ObjMap* session_data = NULL;     // current session key-value store
 static ObjMap* flash_data = NULL;       // flash messages (one-time read)
 static char* session_secret = NULL;     // HMAC signing key
@@ -468,7 +471,11 @@ static Value native_session_init(int argc, Value* args) {
     if (!IS_STRING(args[0])) return VAL_NIL;
 
     ObjString* secret = AS_STRING(args[0]);
-    if (session_secret) free(session_secret);
+    if (session_secret) {
+        // Zero out old key material before freeing
+        memset(session_secret, 0, session_secret_len);
+        free(session_secret);
+    }
     session_secret = (char*)malloc(secret->length);
     memcpy(session_secret, secret->data, secret->length);
     session_secret_len = secret->length;
@@ -640,6 +647,11 @@ static Value native_session_decode(int argc, Value* args) {
     free(decoded_data);
 
     if (!new_data) return VAL_NIL;
+
+    // Unpin old session data before replacing to avoid pin leak
+    if (session_data) {
+        vm_unpin((ObjHeader*)session_data);
+    }
 
     // Replace session data
     session_data = new_data;

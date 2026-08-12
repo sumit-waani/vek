@@ -17,6 +17,9 @@ typedef struct {
 } Builder;
 
 // Builder stack (for nested render_inline calls)
+// NOTE: This is process-global mutable state. The current design assumes
+// single-request-at-a-time processing. Concurrent or pipelined request
+// handling would require per-request context objects instead.
 #define BUILDER_STACK_MAX 32
 
 static Builder builder_stack[BUILDER_STACK_MAX];

@@ -121,11 +121,22 @@ static char* file_path_to_route(const char* rel_path) {
     return result;
 }
 
+// Maximum recursion depth for directory scanning to prevent stack overflow
+// from symlink loops or excessively nested directory trees.
+#define PAGES_MAX_SCAN_DEPTH 32
+
 // Recursively scan a directory for .ve files and execute them.
 // base_dir is the root pages directory (for computing relative paths).
 // current_dir is the directory currently being scanned.
+// depth tracks current recursion depth for safety.
 // Returns the number of files successfully loaded, or -1 on error.
-static int scan_directory(const char* base_dir, const char* current_dir) {
+static int scan_directory(const char* base_dir, const char* current_dir, int depth) {
+    if (depth > PAGES_MAX_SCAN_DEPTH) {
+        fprintf(stderr, "pages.scan: maximum directory depth (%d) exceeded at '%s'\n",
+                PAGES_MAX_SCAN_DEPTH, current_dir);
+        return -1;
+    }
+
     DIR* dir = opendir(current_dir);
     if (!dir) {
         return -1;
@@ -156,8 +167,8 @@ static int scan_directory(const char* base_dir, const char* current_dir) {
         }
 
         if (S_ISDIR(st.st_mode)) {
-            // Recursively scan subdirectory
-            int sub_loaded = scan_directory(base_dir, full_path);
+            // Recursively scan subdirectory with incremented depth
+            int sub_loaded = scan_directory(base_dir, full_path, depth + 1);
             if (sub_loaded > 0) {
                 loaded += sub_loaded;
             }
@@ -229,7 +240,7 @@ static Value native_pages_scan(int arg_count, Value* args) {
     memcpy(dir_path, dir_str->data, dir_str->length);
     dir_path[dir_str->length] = '\0';
 
-    int loaded = scan_directory(dir_path, dir_path);
+    int loaded = scan_directory(dir_path, dir_path, 0);
     free(dir_path);
 
     if (loaded < 0) {
