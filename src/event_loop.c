@@ -225,6 +225,7 @@ static Connection* connection_new(int fd) {
     conn->epoll_data = NULL;
     conn->on_data = NULL;
     conn->on_write_done = NULL;
+    conn->on_close = NULL;
     conn->next = NULL;
     conn->prev = NULL;
     return conn;
@@ -502,6 +503,12 @@ bool event_loop_conn_write(EventLoop* loop, Connection* conn,
 
 void event_loop_conn_close(EventLoop* loop, Connection* conn) {
     if (conn->state == CONN_CLOSED && conn->fd < 0) return;
+
+    // Call the close callback to let upper layers clean up userdata
+    if (conn->on_close) {
+        conn->on_close(loop, conn, conn->userdata);
+        conn->on_close = NULL;
+    }
 
     // Remove from epoll (automatically done on close, but be explicit)
     if (conn->fd >= 0) {

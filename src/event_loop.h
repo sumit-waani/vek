@@ -21,6 +21,7 @@ typedef enum {
 typedef void (*AcceptCallback)(EventLoop* loop, Connection* conn, void* userdata);
 typedef void (*DataCallback)(EventLoop* loop, Connection* conn, void* userdata);
 typedef void (*WriteDoneCallback)(EventLoop* loop, Connection* conn, void* userdata);
+typedef void (*CloseCallback)(EventLoop* loop, Connection* conn, void* userdata);
 typedef void (*TimerCallback)(EventLoop* loop, void* userdata);
 
 // Growable buffer
@@ -43,6 +44,7 @@ struct Connection {
     // Callbacks
     DataCallback      on_data;
     WriteDoneCallback on_write_done;
+    CloseCallback     on_close;
 
     // Linked list for connection tracking
     Connection* next;

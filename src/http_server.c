@@ -52,12 +52,13 @@ void http_response_send(HttpServer* server, Connection* conn,
     char date_buf[64];
     format_date(date_buf, sizeof(date_buf));
 
-    // Calculate response size (generous upper bound)
+    // Calculate total response size (header + body in single buffer)
     size_t hdr_size = 512 + (content_type ? strlen(content_type) : 0);
-    char* hdr_buf = malloc(hdr_size);
-    if (!hdr_buf) return;
+    size_t total_size = hdr_size + body_len;
+    char* resp_buf = malloc(total_size);
+    if (!resp_buf) return;
 
-    int hdr_len = snprintf(hdr_buf, hdr_size,
+    int hdr_len = snprintf(resp_buf, hdr_size,
         "HTTP/1.1 %d %s\r\n"
         "Date: %s\r\n"
         "Content-Length: %zu\r\n"
@@ -70,14 +71,14 @@ void http_response_send(HttpServer* server, Connection* conn,
         content_type ? content_type : "text/plain",
         keep_alive ? "keep-alive" : "close");
 
-    // Write header
-    event_loop_conn_write(&server->loop, conn, hdr_buf, (size_t)hdr_len);
-    free(hdr_buf);
-
-    // Write body
+    // Append body to same buffer
     if (body && body_len > 0) {
-        event_loop_conn_write(&server->loop, conn, body, body_len);
+        memcpy(resp_buf + hdr_len, body, body_len);
     }
+
+    // Single write call: avoids use-after-free if on_write_done fires synchronously
+    event_loop_conn_write(&server->loop, conn, resp_buf, (size_t)hdr_len + body_len);
+    free(resp_buf);
 }
 
 // ---- 404 Not Found response ----
@@ -98,6 +99,8 @@ static void on_request_timeout(EventLoop* loop, void* userdata) {
     HttpConnState* state = (HttpConnState*)conn->userdata;
     if (state) {
         state->timeout = NULL; // Timer already fired and was freed
+        free(state);
+        conn->userdata = NULL;
     }
 
     // Send 408 Request Timeout and close
@@ -116,12 +119,24 @@ static void on_write_done(EventLoop* loop, Connection* conn, void* userdata) {
             event_loop_cancel_timer(loop, state->timeout);
             state->timeout = NULL;
         }
-        // Close after response
+        // Free state before closing; on_close will be a no-op since userdata is NULL
         free(state);
         conn->userdata = NULL;
         event_loop_conn_close(loop, conn);
     }
     // If keep-alive, wait for more data (already registered for EPOLLIN)
+}
+
+static void on_close(EventLoop* loop, Connection* conn, void* userdata) {
+    HttpConnState* state = (HttpConnState*)userdata;
+    if (!state) return;
+
+    if (state->timeout) {
+        event_loop_cancel_timer(loop, state->timeout);
+        state->timeout = NULL;
+    }
+    free(state);
+    conn->userdata = NULL;
 }
 
 static void on_data(EventLoop* loop, Connection* conn, void* userdata) {
@@ -206,6 +221,7 @@ static void on_accept(EventLoop* loop, Connection* conn, void* userdata) {
     conn->userdata = state;
     conn->on_data = on_data;
     conn->on_write_done = on_write_done;
+    conn->on_close = on_close;
 
     // Set request timeout if configured
     if (server->request_timeout_ms > 0) {

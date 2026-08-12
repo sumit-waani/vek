@@ -25,6 +25,7 @@ static bool g_server_initialized = false;
 static void on_accept_vek(EventLoop* loop, Connection* conn, void* userdata);
 static void on_data_vek(EventLoop* loop, Connection* conn, void* userdata);
 static void on_write_done_vek(EventLoop* loop, Connection* conn, void* userdata);
+static void on_close_vek(EventLoop* loop, Connection* conn, void* userdata);
 static void vek_http_handler(HttpServer* server, Connection* conn,
                              HttpRequest* req, RouteParams* params,
                              void* userdata);
@@ -298,6 +299,8 @@ static void on_timeout_vek(EventLoop* loop, void* userdata) {
     HttpConnState* state = (HttpConnState*)conn->userdata;
     if (state) {
         state->timeout = NULL; // Timer already fired and was freed
+        free(state);
+        conn->userdata = NULL;
     }
 
     event_loop_conn_close(loop, conn);
@@ -320,6 +323,7 @@ static void on_accept_vek(EventLoop* loop, Connection* conn, void* userdata) {
     conn->userdata = state;
     conn->on_data = on_data_vek;
     conn->on_write_done = on_write_done_vek;
+    conn->on_close = on_close_vek;
 
     // Set request timeout if configured
     if (server->request_timeout_ms > 0) {
@@ -338,10 +342,24 @@ static void on_write_done_vek(EventLoop* loop, Connection* conn, void* userdata)
             event_loop_cancel_timer(loop, state->timeout);
             state->timeout = NULL;
         }
+        // Free state before closing; on_close_vek will be a no-op since userdata is NULL
         free(state);
         conn->userdata = NULL;
         event_loop_conn_close(loop, conn);
     }
+}
+
+// Close callback - frees HttpConnState when connection is closed externally
+static void on_close_vek(EventLoop* loop, Connection* conn, void* userdata) {
+    HttpConnState* state = (HttpConnState*)userdata;
+    if (!state) return;
+
+    if (state->timeout) {
+        event_loop_cancel_timer(loop, state->timeout);
+        state->timeout = NULL;
+    }
+    free(state);
+    conn->userdata = NULL;
 }
 
 // Data callback - parse HTTP request and dispatch to handler
