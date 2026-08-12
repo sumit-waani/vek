@@ -2,7 +2,7 @@
   "id": "FEAT-002",
   "type": "feat",
   "description": "Implement markdown, sanitize, webhook, cli, and compress packages - text processing and utility packages",
-  "status": "pending",
+  "status": "in_progress",
   "steps": [
     "Create src/stdlib_markdown.c with: markdown.render(string) that converts Markdown to HTML. Implement a subset: headings (#-######), paragraphs, bold (**), italic (*), inline code (`), code blocks (```), links [text](url), unordered lists (- item), ordered lists (1. item), blockquotes (>), horizontal rules (---). HTML-escape all text content for XSS safety.",
     "Create src/stdlib_sanitize.c with: sanitize.html(string, config_map) that strips or allows HTML tags based on an allowlist config. Config map has 'tags' key with list of allowed tag names, 'attrs' key with map of tag->allowed_attrs_list. Strips all tags/attrs not in allowlist. sanitize.strip(string) that removes ALL HTML tags.",

@@ -98,4 +98,19 @@ void stdlib_init(void) {
 
     ObjMap* ratelimit_pkg = create_package("ratelimit");
     stdlib_ratelimit_init(ratelimit_pkg);
+
+    ObjMap* markdown_pkg = create_package("markdown");
+    stdlib_markdown_init(markdown_pkg);
+
+    ObjMap* sanitize_pkg = create_package("sanitize");
+    stdlib_sanitize_init(sanitize_pkg);
+
+    ObjMap* webhook_pkg = create_package("webhook");
+    stdlib_webhook_init(webhook_pkg);
+
+    ObjMap* cli_pkg = create_package("cli");
+    stdlib_cli_init(cli_pkg);
+
+    ObjMap* compress_pkg = create_package("compress");
+    stdlib_compress_init(compress_pkg);
 }

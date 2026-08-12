@@ -32,6 +32,14 @@ void stdlib_csp_init(ObjMap* pkg);
 void stdlib_cors_init(ObjMap* pkg);
 void stdlib_i18n_init(ObjMap* pkg);
 void stdlib_ratelimit_init(ObjMap* pkg);
+void stdlib_markdown_init(ObjMap* pkg);
+void stdlib_sanitize_init(ObjMap* pkg);
+void stdlib_webhook_init(ObjMap* pkg);
+void stdlib_cli_init(ObjMap* pkg);
+void stdlib_compress_init(ObjMap* pkg);
+
+// cli.c needs this called from main to store argc/argv
+void cli_set_args(int argc, char** argv);
 
 // Helper: register a native function into a package map
 void stdlib_register(ObjMap* pkg, const char* name, NativeFn fn, int arity);

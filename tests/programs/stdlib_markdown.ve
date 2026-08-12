@@ -1,0 +1,37 @@
+# Test markdown package
+
+# Test heading
+print(markdown.render("# Hello"))
+
+# Test h2
+print(markdown.render("## World"))
+
+# Test paragraph
+print(markdown.render("Just text"))
+
+# Test bold
+print(markdown.render("**bold**"))
+
+# Test italic
+print(markdown.render("*italic*"))
+
+# Test inline code
+print(markdown.render("`code`"))
+
+# Test link
+print(markdown.render("[click](http://example.com)"))
+
+# Test unordered list
+print(markdown.render("- one\n- two"))
+
+# Test ordered list
+print(markdown.render("1. first\n2. second"))
+
+# Test blockquote
+print(markdown.render("> quoted"))
+
+# Test horizontal rule
+print(markdown.render("---"))
+
+# Test HTML escaping in content
+print(markdown.render("# <script>"))
