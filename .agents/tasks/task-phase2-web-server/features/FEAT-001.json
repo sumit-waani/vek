@@ -1,0 +1,34 @@
+{
+  "id": "FEAT-001",
+  "type": "feat",
+  "description": "Native module system for stdlib packages. Implement a module/namespace mechanism so that stdlib packages like 'log', 'env', 'json' can be accessed as 'log.info()', 'env(\"KEY\")', 'json.encode(val)' etc. This uses the existing ObjMap + native function infrastructure - each package is a global ObjMap with native function values.",
+  "status": "in_progress",
+  "steps": [
+    "Create src/stdlib.h - declare a registration function for each stdlib package and a master stdlib_init() that registers all packages into vm.globals",
+    "Create src/stdlib.c - implement stdlib_init() that creates a map for each package name and registers it as a global. Initially register empty maps for: log, env, json, time, crypto, path, uuid",
+    "Implement the 'log' package in src/stdlib_log.c: log.info(msg, ...), log.warn(msg, ...), log.error(msg, ...), log.debug(msg, ...) - each prints formatted output to stderr with timestamp and level. Use the existing native function pattern from vm.c",
+    "Implement the 'env' package in src/stdlib_env.c: env(key) and env(key, default:val) as a callable native + env.required(key) that exits on missing. Uses getenv() from stdlib",
+    "Implement the 'json' package in src/stdlib_json.c: json.encode(value) converts Value to JSON string, json.decode(string) parses JSON string into Value (maps/lists/strings/ints/floats/bools/nil). Write a simple recursive descent JSON parser (~200 lines)",
+    "Implement the 'time' package in src/stdlib_time.c: time.now() returns epoch seconds as int, time.format(epoch, fmt) returns formatted string using strftime, time.ms() returns epoch milliseconds",
+    "Implement the 'crypto' package in src/stdlib_crypto.c: crypto.random_bytes(n) returns ObjBytes of n random bytes (using /dev/urandom), crypto.sha256(str) returns hex string of SHA-256 (implement SHA-256 in ~100 lines of C)",
+    "Update src/main.c to call stdlib_init() after vm_init()",
+    "Update the Makefile - since it uses wildcard src/*.c, new files are picked up automatically, but verify the build compiles with all new files",
+    "Add integration test: tests/programs/stdlib_basic.ve + .expected testing log output, env access, json encode/decode, time.now, crypto.random_bytes"
+  ],
+  "acceptance_criteria": [
+    "make compiles successfully with all new stdlib files",
+    "Running a .ve program can call log.info('hello') and see output on stderr",
+    "env('PATH') returns a non-empty string from the system environment",
+    "json.encode({a: 1, b: 'hello'}) returns valid JSON string",
+    "json.decode('{\"x\": 42}') returns a map with key 'x' and int value 42",
+    "time.now() returns a positive integer (epoch seconds)",
+    "crypto.random_bytes(16) returns a bytes object of length 16",
+    "make test passes (all existing + new tests)"
+  ],
+  "verification": [
+    "make clean && make",
+    "make test"
+  ],
+  "blocked_reason": null,
+  "findings": ""
+}

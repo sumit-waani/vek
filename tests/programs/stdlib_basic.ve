@@ -1,0 +1,47 @@
+# Test stdlib packages
+
+# Test env package
+path = env.get("PATH")
+print(len(path) > 0)
+
+# Test env.get with default
+missing = env.get("VEK_NONEXISTENT_VAR_12345", "default_value")
+print(missing)
+
+# Test json.encode
+encoded = json.encode({name: "vek"})
+print(encoded)
+
+# Test json.decode
+decoded = json.decode("{\"x\": 42, \"flag\": true}")
+print(decoded.x)
+print(decoded.flag)
+
+# Test json encode/decode with lists
+list_json = json.encode([1, 2, 3])
+print(list_json)
+
+# Test json with nil/booleans
+print(json.encode(nil))
+print(json.encode(true))
+print(json.encode(false))
+
+# Test time.now returns positive integer
+now = time.now()
+print(now > 0)
+
+# Test time.ms returns positive integer
+ms = time.ms()
+print(ms > 0)
+
+# Test crypto.random_bytes
+bytes = crypto.random_bytes(16)
+print(len(bytes))
+
+# Test crypto.sha256
+hash = crypto.sha256("hello")
+print(hash)
+
+# Test json.decode with nested objects
+nested = json.decode("{\"a\": {\"b\": 99}}")
+print(nested.a.b)

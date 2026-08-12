@@ -3,6 +3,7 @@
 #include "gc.h"
 #include "object.h"
 #include "vm.h"
+#include "vek_stdlib.h"
 
 #include <errno.h>
 
@@ -106,6 +107,7 @@ int main(int argc, char* argv[]) {
     intern_table_init();
     heap_init();
     vm_init();
+    stdlib_init();
 
     int exit_code = 0;
 

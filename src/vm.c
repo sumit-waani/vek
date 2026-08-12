@@ -117,6 +117,7 @@ static Value native_len(int arg_count, Value* args) {
     if (IS_STRING(v)) return INT_VAL((int64_t)AS_STRING(v)->length);
     if (IS_LIST(v)) return INT_VAL((int64_t)AS_LIST(v)->length);
     if (IS_MAP(v)) return INT_VAL((int64_t)AS_MAP(v)->length);
+    if (IS_BYTES(v)) return INT_VAL((int64_t)AS_BYTES(v)->length);
     return INT_VAL(0);
 }
 

@@ -678,8 +678,35 @@ static void call(bool can_assign) {
     emit_bytes(OP_CALL, arg_count);
 }
 
+static bool is_identifier_like(TokenType type) {
+    // Allow keywords as field/method names after '.'
+    return type == TOKEN_IDENTIFIER ||
+           type == TOKEN_GET || type == TOKEN_POST ||
+           type == TOKEN_PUT || type == TOKEN_PATCH ||
+           type == TOKEN_DELETE || type == TOKEN_IN ||
+           type == TOKEN_MODULE || type == TOKEN_DO ||
+           type == TOKEN_END || type == TOKEN_FN ||
+           type == TOKEN_IF || type == TOKEN_ELSE ||
+           type == TOKEN_THEN || type == TOKEN_WHILE ||
+           type == TOKEN_FOR || type == TOKEN_RETURN ||
+           type == TOKEN_BREAK || type == TOKEN_NEXT ||
+           type == TOKEN_TRUE || type == TOKEN_FALSE ||
+           type == TOKEN_NIL || type == TOKEN_AND ||
+           type == TOKEN_OR || type == TOKEN_NOT ||
+           type == TOKEN_BEGIN || type == TOKEN_RESCUE ||
+           type == TOKEN_RAISE || type == TOKEN_UNLESS ||
+           type == TOKEN_UNTIL || type == TOKEN_LOOP ||
+           type == TOKEN_CASE || type == TOKEN_ELSIF ||
+           type == TOKEN_RENDER || type == TOKEN_REDIRECT ||
+           type == TOKEN_HALT;
+}
+
 static void dot(bool can_assign) {
-    consume(TOKEN_IDENTIFIER, "Expected property name after '.'.");
+    if (!is_identifier_like(parser.current.type)) {
+        error_at_current("Expected property name after '.'.");
+        return;
+    }
+    advance();
     uint16_t name = identifier_constant(&parser.previous);
 
     if (can_assign && match(TOKEN_EQUAL)) {
