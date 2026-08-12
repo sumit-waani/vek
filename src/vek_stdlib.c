@@ -128,4 +128,7 @@ void stdlib_init(void) {
 
     ObjMap* ws_pkg = create_package("ws");
     stdlib_websocket_init(ws_pkg);
+
+    ObjMap* flash_pkg = create_package("flash");
+    stdlib_flash_init(flash_pkg);
 }

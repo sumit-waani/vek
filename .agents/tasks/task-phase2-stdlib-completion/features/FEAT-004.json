@@ -2,7 +2,7 @@
   "id": "FEAT-004",
   "type": "feat",
   "description": "Implement flash package with view integration - flash messages from session shown in views",
-  "status": "pending",
+  "status": "in_progress",
   "steps": [
     "Create src/stdlib_flash.c with: flash.set(type, message) to store a flash message (type is 'success', 'error', 'info', 'warning'), flash.get(type) to retrieve and clear flash of that type, flash.all() to get all flashes as a list of maps [{type: 'success', message: 'Saved!'}] and clear them. flash.has(type) returns bool. Use session.flash_set/flash_get internally (access the session's flash_data ObjMap directly via extern or through a shared internal interface).",
     "Add a flash.render() function that outputs HTML for flash messages using the view builder. It should check if there's an active html builder (from stdlib_view.c) and if so, write styled flash message divs directly. Pattern: <div class='flash flash-{type}'>{message}</div> for each pending flash message. This integrates flash with the view rendering system.",
