@@ -6,11 +6,10 @@
 
 ## Overview
 
-vek is a web-first language, runtime, and deployment system packaged as a single binary. The system consists of three main artifacts:
+vek is a web-first language, runtime, and deployment system packaged as a single binary. The system consists of two main artifacts:
 
 1. **`vek`** - The CLI + runtime. Compiles, runs, formats, REPL.
-2. **`vekd`** - The dashboard/supervisor. Runs as a system service on the target VPS. Managed entirely via web UI at `:8080`.
-3. **`.vebc`** - The build artifact. Bytecode + assets + metadata.
+2. **`.vebc`** - The build artifact. Bytecode + assets + metadata.
 
 ---
 
@@ -205,7 +204,7 @@ Under the hood:
 
 ### Multi-Core
 
-To use multiple cores, run multiple vek processes for the same app. vekd's reverse proxy load-balances across them. No shared in-memory state across processes; use `db` for coordination.
+To use multiple cores, run multiple vek processes for the same app. A load balancer (e.g. Fly.io) distributes across them. No shared in-memory state across processes; use `db` for coordination.
 
 ### I/O Backends
 
@@ -240,48 +239,46 @@ To use multiple cores, run multiple vek processes for the same app. vekd's rever
 ## Deployment Architecture
 
 ```
-VPS (one machine, one systemd service)
-+-----------------------------------------------+
-|  vekd (:80/:443, :8080 UI)                    |
-|    - Reverse proxy (host-header routing)       |
-|    - Process supervisor                        |
-|    - cgroup manager                            |
-|    - Cloudflare API client                     |
-|                                                |
-|  App processes (each in own cgroup + user)     |
-|    - vek app 1 (port 10001)                    |
-|    - vek app 2 (port 10002)                    |
-|    - ...                                       |
-+-----------------------------------------------+
+Docker Container (one per app)
++----------------------------------------------------+
+|  vek run app.vebc                                   |
+|    - HTTP server on $PORT                           |
+|    - Connects to Turso (env: TURSO_DATABASE_URL)    |
+|    - Connects to S3 (env: S3_ENDPOINT)              |
+|    - Optional Redis (env: REDIS_URL)                |
++----------------------------------------------------+
          |
-         | cloudflared (optional tunnel)
          v
-    Cloudflare (DNS, cache, TLS, DDoS)
+    Fly.io / Docker Host
          |
          v
       Internet
 ```
 
-### Security Boundaries
+### Environment Variables Contract
 
-- Each app runs as its own system user (`vek_<appname>`)
-- Each app in its own cgroup v2 (memory, CPU, PID limits)
-- Apps bind to `127.0.0.1`; only vekd listens publicly
-- Env vars in 0600 files owned by the app user
-- Secrets encrypted at rest with master key
+The app expects the following environment variables to be set by the deployment platform:
+
+| Variable | Required | Description |
+|---|---|---|
+| `TURSO_DATABASE_URL` | Yes | Turso database URL |
+| `TURSO_AUTH_TOKEN` | Yes | Turso auth token |
+| `S3_ENDPOINT` | Yes | S3-compatible endpoint |
+| `S3_ACCESS_KEY` | Yes | S3 access key |
+| `S3_SECRET_KEY` | Yes | S3 secret key |
+| `S3_BUCKET` | Yes | S3 bucket name |
+| `REDIS_URL` | No | Redis URL (enables distributed kv/cache) |
+| `PORT` | No | HTTP listen port (default: 8080) |
+| `SECRET_KEY_BASE` | Yes | Base key for session signing |
 
 ### Deploy Flow
 
-The deployment workflow is: SSH once to run the installer, then manage everything via the web dashboard at `:8080`.
-
-1. User triggers deploy from the web UI dashboard
-2. vekd clones/pulls the repo
-3. Runs `vek build` to produce `.vebc`
-4. Places artifact in a timestamped release directory
-5. Starts the app via `systemd-run` with cgroup constraints
-6. Waits for `/__ready__` health check
-7. Updates reverse proxy routing table
-8. Optionally purges Cloudflare cache
+1. Developer runs `vek new myapp` (generates Dockerfile + fly.toml)
+2. Developer fills in `.env` with Turso/S3 credentials
+3. Developer runs `vek dev` for local development
+4. To deploy: `docker build .` or `flyctl deploy`
+5. The container runs `vek run app.vebc` on the configured `$PORT`
+6. The platform handles TLS termination, load balancing, and scaling
 
 ---
 
