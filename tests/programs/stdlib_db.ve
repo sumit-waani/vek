@@ -1,62 +1,18 @@
-# Test db (SQLite) stdlib package
+# Test db (Turso) stdlib package
+# Without TURSO_DATABASE_URL set, operations should return nil gracefully
 
-# Open in-memory database
-result = db.open(":memory:")
+# Try to connect without env vars
+result = db.connect()
 print(result)
 
-# Create table
-db.exec("CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT, age INTEGER)")
+# Query without connection should return nil
+rows = db.query("SELECT 1")
+print(rows)
 
-# Insert rows
-id1 = db.exec("INSERT INTO users (name, age) VALUES (?, ?)", "Alice", 30)
-print(id1)
+# Exec without connection should return nil
+exec_result = db.exec("INSERT INTO test VALUES (1)")
+print(exec_result)
 
-id2 = db.exec("INSERT INTO users (name, age) VALUES (?, ?)", "Bob", 25)
-print(id2)
-
-# Query all rows
-rows = db.query("SELECT id, name, age FROM users ORDER BY id")
-print(len(rows))
-
-# Check first row
-print(rows[0]["name"])
-print(rows[0]["age"])
-
-# Check second row
-print(rows[1]["name"])
-print(rows[1]["age"])
-
-# Query with params
-filtered = db.query("SELECT name FROM users WHERE age > ?", 26)
-print(len(filtered))
-print(filtered[0]["name"])
-
-# Test db.row
-row = db.row("SELECT name, age FROM users WHERE id = ?", 1)
-print(row["name"])
-print(row["age"])
-
-# Test db.row returns nil for no match
-missing = db.row("SELECT name FROM users WHERE id = ?", 999)
-print(missing)
-
-# Test db.scalar
-count = db.scalar("SELECT COUNT(*) FROM users")
-print(count)
-
-# Test db.scalar with string result
-name = db.scalar("SELECT name FROM users WHERE id = ?", 2)
-print(name)
-
-# Test transaction commit
-fn do_insert()
-    db.exec("INSERT INTO users (name, age) VALUES (?, ?)", "Charlie", 35)
-end
-
-db.transaction(do_insert)
-count_after = db.scalar("SELECT COUNT(*) FROM users")
-print(count_after)
-
-# Close database
+# Close without connection should not crash
 db.close()
 print("done")

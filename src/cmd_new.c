@@ -210,6 +210,82 @@ static int generate_config(const char* base) {
     return write_file(path, content);
 }
 
+static int generate_env_example(const char* base) {
+    char path[4096];
+    snprintf(path, sizeof(path), "%s/.env.example", base);
+
+    const char* content =
+        "# Turso Database (required)\n"
+        "TURSO_DATABASE_URL=libsql://your-db-name-org.turso.io\n"
+        "TURSO_AUTH_TOKEN=your-auth-token\n"
+        "\n"
+        "# S3-compatible storage (required for file uploads)\n"
+        "S3_ENDPOINT=https://your-endpoint.r2.cloudflarestorage.com\n"
+        "S3_ACCESS_KEY=your-access-key\n"
+        "S3_SECRET_KEY=your-secret-key\n"
+        "S3_BUCKET=your-bucket-name\n"
+        "\n"
+        "# Redis (optional - only needed for multi-machine clustering)\n"
+        "# REDIS_URL=redis://localhost:6379\n";
+
+    return write_file(path, content);
+}
+
+static int generate_dockerfile(const char* base) {
+    char path[4096];
+    snprintf(path, sizeof(path), "%s/Dockerfile", base);
+
+    const char* content =
+        "FROM debian:bookworm-slim\n"
+        "\n"
+        "RUN apt-get update && apt-get install -y --no-install-recommends \\\n"
+        "    ca-certificates \\\n"
+        "    && rm -rf /var/lib/apt/lists/*\n"
+        "\n"
+        "WORKDIR /app\n"
+        "\n"
+        "# Copy the vek binary (pre-built)\n"
+        "COPY vek /usr/local/bin/vek\n"
+        "\n"
+        "# Copy application source\n"
+        "COPY . .\n"
+        "\n"
+        "EXPOSE 3000\n"
+        "\n"
+        "ENV PORT=3000\n"
+        "\n"
+        "CMD [\"vek\", \"run\", \"app.ve\"]\n";
+
+    return write_file(path, content);
+}
+
+static int generate_fly_toml(const char* base, const char* appname) {
+    char path[4096];
+    snprintf(path, sizeof(path), "%s/fly.toml", base);
+
+    char content[2048];
+    snprintf(content, sizeof(content),
+        "app = \"%s\"\n"
+        "primary_region = \"iad\"\n"
+        "\n"
+        "[build]\n"
+        "  dockerfile = \"Dockerfile\"\n"
+        "\n"
+        "[http_service]\n"
+        "  internal_port = 3000\n"
+        "  force_https = true\n"
+        "  auto_stop_machines = true\n"
+        "  auto_start_machines = true\n"
+        "  min_machines_running = 0\n"
+        "\n"
+        "[env]\n"
+        "  PORT = \"3000\"\n",
+        appname
+    );
+
+    return write_file(path, content);
+}
+
 // ---- Public entry point ----
 
 int cmd_new_run(int argc, char** argv) {
@@ -261,16 +337,24 @@ int cmd_new_run(int argc, char** argv) {
     if (generate_views_index(appname_path) != 0) return 74;
     if (generate_css(appname_path) != 0) return 74;
     if (generate_config(appname_path) != 0) return 74;
+    if (generate_env_example(appname_path) != 0) return 74;
+    if (generate_dockerfile(appname_path) != 0) return 74;
+    if (generate_fly_toml(appname_path, appname) != 0) return 74;
 
     // Print success message
     if (color) {
         printf("\n%s%sProject '%s' created successfully!%s\n\n", CLI_BOLD, CLI_GREEN, appname, CLI_RESET);
         printf("  Next steps:\n\n");
-        printf("    %scd %s && vek dev%s\n\n", CLI_GREEN, appname_path, CLI_RESET);
+        printf("    1. %scd %s%s\n", CLI_GREEN, appname_path, CLI_RESET);
+        printf("    2. Copy %s.env.example%s to %s.env%s and fill in your credentials\n",
+               CLI_BOLD, CLI_RESET, CLI_BOLD, CLI_RESET);
+        printf("    3. %svek dev%s\n\n", CLI_GREEN, CLI_RESET);
     } else {
         printf("\nProject '%s' created successfully!\n\n", appname);
         printf("  Next steps:\n\n");
-        printf("    cd %s && vek dev\n\n", appname_path);
+        printf("    1. cd %s\n", appname_path);
+        printf("    2. Copy .env.example to .env and fill in your credentials\n");
+        printf("    3. vek dev\n\n");
     }
 
     return 0;

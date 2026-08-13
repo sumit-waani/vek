@@ -126,6 +126,32 @@ static int check_child(pid_t pid, int* exit_status) {
 int cmd_dev_run(int argc, char** argv) {
     bool color = cli_color_enabled();
 
+    // Check required environment variables
+    const char* turso_url = getenv("TURSO_DATABASE_URL");
+    const char* turso_token = getenv("TURSO_AUTH_TOKEN");
+
+    if (!turso_url || turso_url[0] == '\0') {
+        if (color) {
+            fprintf(stderr, "%sError:%s TURSO_DATABASE_URL is not set.\n", CLI_RED, CLI_RESET);
+        } else {
+            fprintf(stderr, "Error: TURSO_DATABASE_URL is not set.\n");
+        }
+        fprintf(stderr, "Set TURSO_DATABASE_URL and TURSO_AUTH_TOKEN in your environment or .env file.\n");
+        fprintf(stderr, "See https://turso.tech for setup instructions.\n");
+        return 1;
+    }
+
+    if (!turso_token || turso_token[0] == '\0') {
+        if (color) {
+            fprintf(stderr, "%sError:%s TURSO_AUTH_TOKEN is not set.\n", CLI_RED, CLI_RESET);
+        } else {
+            fprintf(stderr, "Error: TURSO_AUTH_TOKEN is not set.\n");
+        }
+        fprintf(stderr, "Set TURSO_DATABASE_URL and TURSO_AUTH_TOKEN in your environment or .env file.\n");
+        fprintf(stderr, "See https://turso.tech for setup instructions.\n");
+        return 1;
+    }
+
     // Check for app.ve in current directory
     if (access("app.ve", F_OK) != 0) {
         if (color) {
