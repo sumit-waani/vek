@@ -31,7 +31,7 @@ Sections appear in this fixed order:
 | 8 | 32 | `sha256` | SHA-256 hash of all bytes after the header |
 | 40 | 24 | `reserved` | Reserved for future use (zero-filled) |
 
-**Verification:** On load, vekd (or `vek run`) computes SHA-256 of bytes 64..EOF and compares with the header's `sha256` field. Mismatch rejects the artifact.
+**Verification:** On load, `vek run` computes SHA-256 of bytes 64..EOF and compares with the header's `sha256` field. Mismatch rejects the artifact.
 
 **Reproducibility:** `vek build` zeroes all timestamps. Given the same source and compiler version, the output is byte-for-byte identical.
 

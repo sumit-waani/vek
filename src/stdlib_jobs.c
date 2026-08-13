@@ -3,15 +3,20 @@
 #include "vek_stdlib.h"
 #include "vm.h"
 #include "gc.h"
-#include "sqlite3.h"
+#include "turso.h"
 
 #include <time.h>
 
-// Separate SQLite connection for jobs (avoid conflicts with stdlib_db)
-static sqlite3* jobs_db = NULL;
+/*
+ * Jobs stdlib package - Turso/libsql backend.
+ *
+ * Uses the same TURSO_DATABASE_URL / TURSO_AUTH_TOKEN connection.
+ * Table schema: _vek_jobs (id, name, args, status, attempts, run_at, created_at)
+ */
+
+static turso_conn* jobs_db = NULL;
 static bool table_created = false;
 
-// Handler registry: maps job name to a closure
 #define MAX_HANDLERS 64
 typedef struct {
     char name[128];
@@ -118,7 +123,7 @@ static Value jp_parse_value(JParser* p);
 
 static Value jp_parse_string(JParser* p) {
     if (p->pos >= p->len || p->src[p->pos] != '"') return VAL_NIL;
-    p->pos++; // skip opening quote
+    p->pos++;
 
     char* buf = NULL;
     size_t len = 0, cap = 0;
@@ -138,7 +143,7 @@ static Value jp_parse_string(JParser* p) {
         }
         jobs_json_char(&buf, &len, &cap, c);
     }
-    if (p->pos < p->len) p->pos++; // skip closing quote
+    if (p->pos < p->len) p->pos++;
 
     ObjString* str = obj_string_new(buf ? buf : "", (uint32_t)len);
     free(buf);
@@ -173,7 +178,7 @@ static Value jp_parse_value(JParser* p) {
     if (c == '-' || (c >= '0' && c <= '9')) return jp_parse_number(p);
 
     if (c == '{') {
-        p->pos++; // skip {
+        p->pos++;
         ObjMap* map = obj_map_new();
         gc_push_root(OBJ_VAL(map));
 
@@ -229,15 +234,8 @@ static Value jp_parse_value(JParser* p) {
 
 static bool ensure_db(void) {
     if (jobs_db) return true;
-
-    int rc = sqlite3_open("_vek_jobs.db", &jobs_db);
-    if (rc != SQLITE_OK) {
-        jobs_db = NULL;
-        return false;
-    }
-
-    // Enable WAL mode
-    sqlite3_exec(jobs_db, "PRAGMA journal_mode=WAL;", NULL, NULL, NULL);
+    jobs_db = turso_connect();
+    if (!jobs_db) return false;
     return true;
 }
 
@@ -256,12 +254,8 @@ static bool ensure_table(void) {
         "  created_at INTEGER"
         ")";
 
-    char* err = NULL;
-    int rc = sqlite3_exec(jobs_db, sql, NULL, NULL, &err);
-    if (rc != SQLITE_OK) {
-        if (err) sqlite3_free(err);
-        return false;
-    }
+    int rc = turso_exec_sql(jobs_db, sql);
+    if (rc != TURSO_OK) return false;
 
     table_created = true;
     return true;
@@ -277,7 +271,6 @@ static Value native_jobs_enqueue(int argc, Value* args) {
 
     ObjString* name = AS_STRING(args[0]);
 
-    // Encode args to JSON
     char* args_json = NULL;
     if (argc >= 2 && IS_MAP(args[1])) {
         args_json = encode_map_to_json(AS_MAP(args[1]));
@@ -290,23 +283,23 @@ static Value native_jobs_enqueue(int argc, Value* args) {
     const char* sql = "INSERT INTO _vek_jobs (name, args, status, attempts, run_at, created_at) "
                       "VALUES (?, ?, 'pending', 0, ?, ?)";
 
-    sqlite3_stmt* stmt;
-    int rc = sqlite3_prepare_v2(jobs_db, sql, -1, &stmt, NULL);
-    if (rc != SQLITE_OK) {
+    turso_stmt* stmt = turso_prepare(jobs_db, sql, (int)strlen(sql));
+    if (!stmt) {
         free(args_json);
         return VAL_NIL;
     }
 
-    sqlite3_bind_text(stmt, 1, name->data, (int)name->length, SQLITE_TRANSIENT);
-    sqlite3_bind_text(stmt, 2, args_json, -1, SQLITE_TRANSIENT);
-    sqlite3_bind_int64(stmt, 3, (sqlite3_int64)now);
-    sqlite3_bind_int64(stmt, 4, (sqlite3_int64)now);
+    turso_bind_text(stmt, 1, name->data, (int)name->length);
+    turso_bind_text(stmt, 2, args_json, (int)strlen(args_json));
+    turso_bind_int(stmt, 3, (int64_t)now);
+    turso_bind_int(stmt, 4, (int64_t)now);
 
-    rc = sqlite3_step(stmt);
-    sqlite3_finalize(stmt);
+    int64_t last_id = 0;
+    int rc = turso_exec(stmt, &last_id);
+    turso_stmt_free(stmt);
     free(args_json);
 
-    if (rc != SQLITE_DONE) return VAL_NIL;
+    if (rc != TURSO_OK) return VAL_NIL;
 
     return VAL_TRUE;
 }
@@ -316,10 +309,7 @@ static Value native_jobs_process(int argc, Value* args) {
     (void)argc;
     if (!IS_STRING(args[0])) return VAL_NIL;
     if (argc < 2) return VAL_NIL;
-
-    // args[1] should be a closure
     if (!IS_CLOSURE(args[1]) && !IS_NATIVE(args[1])) return VAL_NIL;
-
     if (handler_count >= MAX_HANDLERS) return VAL_NIL;
 
     ObjString* name = AS_STRING(args[0]);
@@ -328,10 +318,7 @@ static Value native_jobs_process(int argc, Value* args) {
     handlers[handler_count].name[copy_len] = '\0';
     handlers[handler_count].closure = args[1];
 
-    // Pin the closure object so the GC does not collect it while
-    // it is referenced only from the static handlers array.
     vm_pin((ObjHeader*)AS_PTR(args[1]));
-
     handler_count++;
 
     return VAL_TRUE;
@@ -342,46 +329,51 @@ static Value native_jobs_run_one(int argc, Value* args) {
     (void)argc; (void)args;
     if (!ensure_table()) return VAL_NIL;
 
-    // Find one pending job
+    time_t now = time(NULL);
+
     const char* sql = "SELECT id, name, args FROM _vek_jobs "
                       "WHERE status = 'pending' AND run_at <= ? "
                       "ORDER BY id LIMIT 1";
 
-    sqlite3_stmt* stmt;
-    int rc = sqlite3_prepare_v2(jobs_db, sql, -1, &stmt, NULL);
-    if (rc != SQLITE_OK) return VAL_NIL;
+    turso_stmt* stmt = turso_prepare(jobs_db, sql, (int)strlen(sql));
+    if (!stmt) return VAL_NIL;
 
-    time_t now = time(NULL);
-    sqlite3_bind_int64(stmt, 1, (sqlite3_int64)now);
+    turso_bind_int(stmt, 1, (int64_t)now);
 
-    rc = sqlite3_step(stmt);
-    if (rc != SQLITE_ROW) {
-        sqlite3_finalize(stmt);
-        return VAL_FALSE; // no jobs pending
+    turso_rows* rows = turso_query(stmt);
+    turso_stmt_free(stmt);
+    if (!rows) return VAL_NIL;
+
+    int count = turso_row_count(rows);
+    if (count == 0) {
+        turso_rows_free(rows);
+        return VAL_FALSE;
     }
 
-    int64_t job_id = sqlite3_column_int64(stmt, 0);
-    const char* job_name = (const char*)sqlite3_column_text(stmt, 1);
-    const char* job_args_json = (const char*)sqlite3_column_text(stmt, 2);
+    int64_t job_id = turso_row_get_int(rows, 0, 0);
+    const char* job_name = turso_row_get_text(rows, 0, 1);
+    const char* job_args_json = turso_row_get_text(rows, 0, 2);
 
-    // Copy values before finalize
     char name_buf[128];
-    size_t name_len = strlen(job_name);
-    if (name_len > 127) name_len = 127;
-    memcpy(name_buf, job_name, name_len);
-    name_buf[name_len] = '\0';
+    if (job_name) {
+        size_t name_len = strlen(job_name);
+        if (name_len > 127) name_len = 127;
+        memcpy(name_buf, job_name, name_len);
+        name_buf[name_len] = '\0';
+    } else {
+        name_buf[0] = '\0';
+    }
 
     char* args_copy = strdup(job_args_json ? job_args_json : "{}");
-    sqlite3_finalize(stmt);
+    turso_rows_free(rows);
 
     // Mark as running
     const char* update_sql = "UPDATE _vek_jobs SET status = 'running', attempts = attempts + 1 WHERE id = ?";
-    sqlite3_stmt* update_stmt;
-    rc = sqlite3_prepare_v2(jobs_db, update_sql, -1, &update_stmt, NULL);
-    if (rc == SQLITE_OK) {
-        sqlite3_bind_int64(update_stmt, 1, job_id);
-        sqlite3_step(update_stmt);
-        sqlite3_finalize(update_stmt);
+    turso_stmt* update_stmt = turso_prepare(jobs_db, update_sql, (int)strlen(update_sql));
+    if (update_stmt) {
+        turso_bind_int(update_stmt, 1, job_id);
+        turso_exec(update_stmt, NULL);
+        turso_stmt_free(update_stmt);
     }
 
     // Find handler
@@ -394,14 +386,12 @@ static Value native_jobs_run_one(int argc, Value* args) {
     }
 
     if (IS_NIL(handler)) {
-        // No handler registered, mark back as pending
         const char* revert_sql = "UPDATE _vek_jobs SET status = 'pending' WHERE id = ?";
-        sqlite3_stmt* revert_stmt;
-        rc = sqlite3_prepare_v2(jobs_db, revert_sql, -1, &revert_stmt, NULL);
-        if (rc == SQLITE_OK) {
-            sqlite3_bind_int64(revert_stmt, 1, job_id);
-            sqlite3_step(revert_stmt);
-            sqlite3_finalize(revert_stmt);
+        turso_stmt* revert_stmt = turso_prepare(jobs_db, revert_sql, (int)strlen(revert_sql));
+        if (revert_stmt) {
+            turso_bind_int(revert_stmt, 1, job_id);
+            turso_exec(revert_stmt, NULL);
+            turso_stmt_free(revert_stmt);
         }
         free(args_copy);
         return VAL_FALSE;
@@ -412,7 +402,7 @@ static Value native_jobs_run_one(int argc, Value* args) {
     Value args_val = jp_parse_value(&parser);
     free(args_copy);
 
-    // Call the handler with the args map
+    // Call the handler
     vm_push(handler);
     vm_push(args_val);
     Value result = vm_call(handler, 1);
@@ -425,12 +415,11 @@ static Value native_jobs_run_one(int argc, Value* args) {
         done_sql = "UPDATE _vek_jobs SET status = 'failed' WHERE id = ?";
     }
 
-    sqlite3_stmt* done_stmt;
-    rc = sqlite3_prepare_v2(jobs_db, done_sql, -1, &done_stmt, NULL);
-    if (rc == SQLITE_OK) {
-        sqlite3_bind_int64(done_stmt, 1, job_id);
-        sqlite3_step(done_stmt);
-        sqlite3_finalize(done_stmt);
+    turso_stmt* done_stmt = turso_prepare(jobs_db, done_sql, (int)strlen(done_sql));
+    if (done_stmt) {
+        turso_bind_int(done_stmt, 1, job_id);
+        turso_exec(done_stmt, NULL);
+        turso_stmt_free(done_stmt);
     }
 
     return VAL_TRUE;
@@ -440,8 +429,7 @@ static Value native_jobs_run_one(int argc, Value* args) {
 static Value native_jobs_clear(int argc, Value* args) {
     (void)argc; (void)args;
     if (!ensure_table()) return VAL_NIL;
-
-    sqlite3_exec(jobs_db, "DELETE FROM _vek_jobs", NULL, NULL, NULL);
+    turso_exec_sql(jobs_db, "DELETE FROM _vek_jobs");
     return VAL_TRUE;
 }
 
@@ -451,18 +439,20 @@ static Value native_jobs_pending(int argc, Value* args) {
     if (!ensure_table()) return INT_VAL(0);
 
     const char* sql = "SELECT COUNT(*) FROM _vek_jobs WHERE status = 'pending'";
-    sqlite3_stmt* stmt;
-    int rc = sqlite3_prepare_v2(jobs_db, sql, -1, &stmt, NULL);
-    if (rc != SQLITE_OK) return INT_VAL(0);
+    turso_stmt* stmt = turso_prepare(jobs_db, sql, (int)strlen(sql));
+    if (!stmt) return INT_VAL(0);
 
-    rc = sqlite3_step(stmt);
-    int64_t count = 0;
-    if (rc == SQLITE_ROW) {
-        count = sqlite3_column_int64(stmt, 0);
+    turso_rows* rows = turso_query(stmt);
+    turso_stmt_free(stmt);
+    if (!rows) return INT_VAL(0);
+
+    int64_t cnt = 0;
+    if (turso_row_count(rows) > 0) {
+        cnt = turso_row_get_int(rows, 0, 0);
     }
-    sqlite3_finalize(stmt);
+    turso_rows_free(rows);
 
-    return INT_VAL(count);
+    return INT_VAL(cnt);
 }
 
 void stdlib_jobs_init(ObjMap* pkg) {

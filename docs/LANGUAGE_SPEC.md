@@ -224,7 +224,7 @@ A symbol `:foo` is syntactic sugar for an interned string. There is no separate 
 - `:foo == "foo"` is `true`
 - Comparison is pointer-equality after interning
 - Only identifier-like forms are valid (no interpolation in symbols)
-- Used for config values: `db :sqlite`, `session :cookie`
+- Used for config values: `env :production`, `session :cookie`
 
 ---
 
