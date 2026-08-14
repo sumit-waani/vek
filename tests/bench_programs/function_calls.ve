@@ -1,0 +1,9 @@
+fn add(a, b)
+  a + b
+end
+
+i = 0
+while i < 1000000
+  add(i, 1)
+  i = i + 1
+end

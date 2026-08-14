@@ -1,0 +1,7 @@
+m = {}
+i = 0
+while i < 10000
+  key = "k" + to_s(i)
+  m[key] = i
+  i = i + 1
+end
