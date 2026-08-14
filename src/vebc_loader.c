@@ -314,9 +314,9 @@ ObjFunction* vebc_to_function(VebcFile* file) {
                 break;
             }
             case CONST_TAG_FUNC_REF: {
-                // For now skip nested function reconstruction - store nil
-                // A full implementation would recursively reconstruct sub-functions
+                uint32_t func_idx = read_u32_le(file->data + pos);
                 pos += 4;
+                fprintf(stderr, "warning: unresolved function reference (index %u) in .vebc at constant %u - loaded as nil\n", func_idx, i);
                 break;
             }
             case CONST_TAG_BYTES: {

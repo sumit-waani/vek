@@ -226,7 +226,18 @@ int cmd_dev_run(int argc, char** argv) {
         }
 
         if (result == 1) {
-            // File changed - reload
+            // File changed - debounce/coalesce window
+            // Drain additional rapid events before restarting
+            char drain_path[4096];
+            for (;;) {
+                int drain_result = file_watcher_poll(fw, drain_path, sizeof(drain_path), 150);
+                if (g_should_exit) break;
+                if (drain_result != 1) break; // No more events within 150ms window
+            }
+
+            if (g_should_exit) break;
+
+            // Now do the single restart
             if (color) {
                 printf("%s[reload]%s %s%s%s changed\n",
                        CLI_CYAN, CLI_RESET, CLI_BOLD, changed_path, CLI_RESET);

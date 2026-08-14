@@ -133,8 +133,16 @@ int cmd_build_run(int argc, char** argv) {
     vm_init();
     stdlib_init();
 
-    VebcBuilder builder;
-    vebc_builder_init(&builder);
+    VebcBuilder* builder = (VebcBuilder*)calloc(1, sizeof(VebcBuilder));
+    if (!builder) {
+        fprintf(stderr, "Error: could not allocate VebcBuilder\n");
+        vm_free();
+        intern_table_destroy();
+        gc_destroy();
+        heap_destroy();
+        return 1;
+    }
+    vebc_builder_init(builder);
     uint32_t func_count = 0;
     bool had_error = false;
 
@@ -142,7 +150,7 @@ int cmd_build_run(int argc, char** argv) {
     if (app_fn == NULL) {
         had_error = true;
     } else {
-        vebc_builder_add_function(&builder, app_fn);
+        vebc_builder_add_function(builder, app_fn);
         func_count++;
     }
 
@@ -159,7 +167,7 @@ int cmd_build_run(int argc, char** argv) {
                 snprintf(route_path, sizeof(route_path), "routes/%s", entry->d_name);
                 ObjFunction* route_fn = compile_source_file(route_path);
                 if (route_fn == NULL) { had_error = true; break; }
-                vebc_builder_add_function(&builder, route_fn);
+                vebc_builder_add_function(builder, route_fn);
                 func_count++;
             }
             closedir(routes_dir);
@@ -168,16 +176,17 @@ int cmd_build_run(int argc, char** argv) {
 
     uint32_t asset_count = 0;
     if (!had_error && stat("public", &st) == 0 && S_ISDIR(st.st_mode)) {
-        scan_assets(&builder, "public", "public", &asset_count);
+        scan_assets(builder, "public", "public", &asset_count);
     }
 
     bool write_ok = false;
-    if (!had_error) write_ok = vebc_builder_write(&builder, output);
+    if (!had_error) write_ok = vebc_builder_write(builder, output);
 
     uint32_t output_size = 0;
     if (write_ok && stat(output, &st) == 0) output_size = (uint32_t)st.st_size;
 
-    vebc_builder_destroy(&builder);
+    vebc_builder_destroy(builder);
+    free(builder);
     vm_free();
     intern_table_destroy();
     gc_destroy();
