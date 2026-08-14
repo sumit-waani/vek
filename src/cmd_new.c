@@ -222,10 +222,7 @@ static int generate_env_example(const char* base) {
         "S3_ENDPOINT=https://your-endpoint.r2.cloudflarestorage.com\n"
         "S3_ACCESS_KEY=your-access-key\n"
         "S3_SECRET_KEY=your-secret-key\n"
-        "S3_BUCKET=your-bucket-name\n"
-        "\n"
-        "# Redis (optional - only needed for multi-machine clustering)\n"
-        "# REDIS_URL=redis://localhost:6379\n";
+        "S3_BUCKET=your-bucket-name\n";
 
     return write_file(path, content);
 }
