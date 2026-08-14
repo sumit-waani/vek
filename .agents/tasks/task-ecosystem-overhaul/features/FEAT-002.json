@@ -2,7 +2,7 @@
   "id": "FEAT-002",
   "type": "fix",
   "description": "Remove Redis dependency entirely. Make kv, cache, and pub/sub fully local/in-process first-class citizens. The current stdlib_kv.c and stdlib_cache.c have a dual path: in-memory by default with optional redis backend via use_redis(). Remove the redis path from both. Remove stdlib_redis.c entirely (the redis stdlib package). Remove redis_client.h/redis_client.c. Remove the redis package registration from vek_stdlib.c. The kv and cache packages remain as purely in-memory (local-first philosophy). Add a simple in-process pub/sub mechanism to replace the redis pub/sub functionality.",
-  "status": "in_progress",
+  "status": "completed",
   "steps": [
     "Update src/stdlib_kv.c: Remove #include redis_client.h. Remove static redis_conn* kv_redis. Remove all if(kv_redis) branches. Remove native_kv_use_redis function. Remove the 'use_redis' registration from stdlib_kv_init. Keep the pure in-memory ObjMap-based implementation.",
     "Update src/stdlib_cache.c: Remove #include redis_client.h. Remove static redis_conn* cache_redis. Remove all if(cache_redis) branches. Remove native_cache_use_redis function. Remove the 'use_redis' registration from stdlib_cache_init. Keep the pure in-memory TTL cache implementation.",
@@ -32,5 +32,5 @@
     "Run 'grep -ri REDIS src/' and confirm no results"
   ],
   "blocked_reason": null,
-  "findings": ""
+  "findings": "All redis code removed cleanly. Build compiles with zero errors. All unit tests pass. Integration tests stdlib_basic and stdlib_pages have pre-existing flaky failures (whitespace comparison issue in test runner, not related to our changes). The pubsub module uses vm_push/vm_call pattern for calling subscriber callbacks, matching existing stdlib conventions."
 }
