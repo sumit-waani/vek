@@ -204,7 +204,7 @@ Under the hood:
 
 ### Multi-Core
 
-To use multiple cores, run multiple vek processes for the same app. A load balancer (e.g. Fly.io) distributes across them. No shared in-memory state across processes; use `db` for coordination.
+To use multiple cores, run multiple vek processes for the same app. A reverse proxy (e.g. nginx or caddy) distributes across them. No shared in-memory state across processes; use `db` for coordination.
 
 ### I/O Backends
 
@@ -236,49 +236,46 @@ To use multiple cores, run multiple vek processes for the same app. A load balan
 
 ---
 
-## Deployment Architecture
+## Deployment
+
+vek apps run as a single process on a VPS or VM. The app connects to an embedded
+SQLite database locally and to S3 for blob storage.
 
 ```
-Docker Container (one per app)
+VPS / VM
 +----------------------------------------------------+
 |  vek run app.vebc                                   |
 |    - HTTP server on $PORT                           |
-|    - Connects to Turso (env: TURSO_DATABASE_URL)    |
+|    - SQLite database (local file, DATABASE_PATH)    |
 |    - Connects to S3 (env: S3_ENDPOINT)              |
-|    - Optional Redis (env: REDIS_URL)                |
 +----------------------------------------------------+
          |
-         v
-    Fly.io / Docker Host
+    nginx / caddy (reverse proxy, TLS)
          |
-         v
       Internet
 ```
 
 ### Environment Variables Contract
 
-The app expects the following environment variables to be set by the deployment platform:
+The app expects the following environment variables:
 
 | Variable | Required | Description |
 |---|---|---|
-| `TURSO_DATABASE_URL` | Yes | Turso database URL |
-| `TURSO_AUTH_TOKEN` | Yes | Turso auth token |
+| `DATABASE_PATH` | No | Path to SQLite database file (default: app.db) |
 | `S3_ENDPOINT` | Yes | S3-compatible endpoint |
 | `S3_ACCESS_KEY` | Yes | S3 access key |
 | `S3_SECRET_KEY` | Yes | S3 secret key |
 | `S3_BUCKET` | Yes | S3 bucket name |
-| `REDIS_URL` | No | Redis URL (enables distributed kv/cache) |
 | `PORT` | No | HTTP listen port (default: 8080) |
 | `SECRET_KEY_BASE` | Yes | Base key for session signing |
 
 ### Deploy Flow
 
-1. Developer runs `vek new myapp` (generates Dockerfile + fly.toml)
-2. Developer fills in `.env` with Turso/S3 credentials
-3. Developer runs `vek dev` for local development
-4. To deploy: `docker build .` or `flyctl deploy`
-5. The container runs `vek run app.vebc` on the configured `$PORT`
-6. The platform handles TLS termination, load balancing, and scaling
+1. Developer runs `vek build` to compile the app into a `.vebc` artifact
+2. Developer copies the `vek` binary and `app.vebc` to the server
+3. Developer configures environment variables on the server
+4. App runs via process manager (systemd or supervisor): `vek run app.vebc`
+5. A reverse proxy (nginx or caddy) handles TLS termination and routing
 
 ---
 

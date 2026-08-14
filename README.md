@@ -10,9 +10,8 @@ runs on a custom VM with NaN-boxed values and a fiber-based concurrency model.
 
 ### Prerequisites
 
-- A [Turso](https://turso.tech) database (provides the `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN`)
+- No external database required. vek uses embedded SQLite (zero configuration, file-based).
 - An S3-compatible object storage bucket (provides `S3_ENDPOINT`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_BUCKET`)
-- Optionally: a Redis instance for distributed `kv`/`cache` (provides `REDIS_URL`)
 
 ### Create a New Project
 
@@ -26,20 +25,18 @@ cd myapp
 Fill in the generated `.env` file with your credentials:
 
 ```env
-TURSO_DATABASE_URL=libsql://your-db-name.turso.io
-TURSO_AUTH_TOKEN=your-token-here
+# Optional: path to SQLite database file (defaults to app.db)
+# DATABASE_PATH=app.db
 S3_ENDPOINT=https://your-s3-endpoint.com
 S3_ACCESS_KEY=your-access-key
 S3_SECRET_KEY=your-secret-key
 S3_BUCKET=your-bucket-name
 SECRET_KEY_BASE=generate-a-random-64-char-string
-# Optional: enable distributed kv/cache
-# REDIS_URL=redis://localhost:6379
 ```
 
-> **Note:** A Turso database is required. Create one at https://turso.tech before
-> running your app. The `vek` CLI checks that all required env vars are present
-> and fails fast with a clear error if any are missing.
+> **Note:** No external database setup is needed. vek creates and manages a local
+> SQLite database file automatically. The `DATABASE_PATH` variable is optional and
+> defaults to `app.db` in the working directory.
 
 ### Run in Development
 
@@ -70,8 +67,6 @@ myapp/
   public/
     style.css
   .env             # Environment variables (not committed)
-  Dockerfile       # Generated, ready for deployment
-  fly.toml         # Generated, ready for Fly.io
 ```
 
 ---
@@ -94,8 +89,8 @@ myapp/
 
 ## Deployment
 
-Deployment uses standard Docker tooling. The `vek new` command generates a
-`Dockerfile` and `fly.toml` ready for use.
+vek apps run as a single process on any VPS or VM. No containers or platform
+services are required.
 
 ### Build and Deploy
 
@@ -103,31 +98,32 @@ Deployment uses standard Docker tooling. The `vek new` command generates a
 # Build the app
 vek build
 
-# Build Docker image
-docker build -t myapp .
+# Copy the binary and bytecode to your server
+scp app.vebc user@server:/opt/myapp/
 
-# Deploy to Fly.io
-flyctl deploy
+# Run on the server
+vek run app.vebc
 ```
+
+Use a process manager (systemd, supervisor) to keep the app running, and a
+reverse proxy (nginx, caddy) for TLS termination and routing.
 
 ### Environment Variables
 
-Set these on your deployment platform (Fly.io secrets, Docker env, etc.):
+Set these on your server (via systemd unit file, `.env`, or export):
 
 | Variable | Required | Description |
 |---|---|---|
-| `TURSO_DATABASE_URL` | Yes | Turso database URL |
-| `TURSO_AUTH_TOKEN` | Yes | Turso authentication token |
+| `DATABASE_PATH` | No | Path to SQLite database file (default: app.db) |
 | `S3_ENDPOINT` | Yes | S3-compatible storage endpoint |
 | `S3_ACCESS_KEY` | Yes | S3 access key ID |
 | `S3_SECRET_KEY` | Yes | S3 secret access key |
 | `S3_BUCKET` | Yes | S3 bucket name |
 | `SECRET_KEY_BASE` | Yes | Secret key for session signing |
-| `REDIS_URL` | No | Redis URL for distributed kv/cache |
 | `PORT` | No | HTTP port (default: 8080) |
 
-The `vek` CLI never shells out to `turso`, `fly`, `aws`, or any other vendor CLI.
-You provision your own resources and supply credentials via environment variables.
+The `vek` CLI never shells out to any vendor CLI. You provision your own
+resources and supply credentials via environment variables.
 
 ---
 
@@ -137,9 +133,10 @@ vek ships with 30 built-in packages:
 
 | Package | Description |
 |---|---|
-| `db` | Turso/libsql database (queries, transactions, connection pool) |
-| `kv` | In-memory key-value store (LRU with TTL); optional Redis backend |
-| `cache` | TTL cache with `get_or_set`; optional Redis backend |
+| `db` | SQLite database (queries, transactions, migrations) |
+| `kv` | In-memory key-value store (LRU with TTL) |
+| `cache` | In-memory TTL cache with `get_or_set` |
+| `pubsub` | In-process publish/subscribe messaging |
 | `json` | JSON encode/decode |
 | `form` | Form validation DSL |
 | `session` | Signed cookie sessions |
@@ -153,7 +150,7 @@ vek ships with 30 built-in packages:
 | `path` | URL path utilities |
 | `http` | HTTP client with timeouts and retries |
 | `mail` | SMTP email sending |
-| `jobs` | Background job queue (persisted to Turso, retry with backoff) |
+| `jobs` | Background job queue (persisted to SQLite, retry with backoff) |
 | `storage` | S3-compatible blob storage |
 | `flash` | One-shot session messages |
 | `ratelimit` | Token bucket rate limiting |
