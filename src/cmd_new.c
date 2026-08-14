@@ -227,61 +227,6 @@ static int generate_env_example(const char* base) {
     return write_file(path, content);
 }
 
-static int generate_dockerfile(const char* base) {
-    char path[4096];
-    snprintf(path, sizeof(path), "%s/Dockerfile", base);
-
-    const char* content =
-        "FROM debian:bookworm-slim\n"
-        "\n"
-        "RUN apt-get update && apt-get install -y --no-install-recommends \\\n"
-        "    ca-certificates \\\n"
-        "    && rm -rf /var/lib/apt/lists/*\n"
-        "\n"
-        "WORKDIR /app\n"
-        "\n"
-        "# Copy the vek binary (pre-built)\n"
-        "COPY vek /usr/local/bin/vek\n"
-        "\n"
-        "# Copy application source\n"
-        "COPY . .\n"
-        "\n"
-        "EXPOSE 3000\n"
-        "\n"
-        "ENV PORT=3000\n"
-        "\n"
-        "CMD [\"vek\", \"run\", \"app.ve\"]\n";
-
-    return write_file(path, content);
-}
-
-static int generate_fly_toml(const char* base, const char* appname) {
-    char path[4096];
-    snprintf(path, sizeof(path), "%s/fly.toml", base);
-
-    char content[2048];
-    snprintf(content, sizeof(content),
-        "app = \"%s\"\n"
-        "primary_region = \"iad\"\n"
-        "\n"
-        "[build]\n"
-        "  dockerfile = \"Dockerfile\"\n"
-        "\n"
-        "[http_service]\n"
-        "  internal_port = 3000\n"
-        "  force_https = true\n"
-        "  auto_stop_machines = true\n"
-        "  auto_start_machines = true\n"
-        "  min_machines_running = 0\n"
-        "\n"
-        "[env]\n"
-        "  PORT = \"3000\"\n",
-        appname
-    );
-
-    return write_file(path, content);
-}
-
 // ---- Public entry point ----
 
 int cmd_new_run(int argc, char** argv) {
@@ -334,8 +279,6 @@ int cmd_new_run(int argc, char** argv) {
     if (generate_css(appname_path) != 0) return 74;
     if (generate_config(appname_path) != 0) return 74;
     if (generate_env_example(appname_path) != 0) return 74;
-    if (generate_dockerfile(appname_path) != 0) return 74;
-    if (generate_fly_toml(appname_path, appname) != 0) return 74;
 
     // Print success message
     if (color) {
