@@ -11,7 +11,10 @@ BUILDDIR:= build
 TESTDIR := tests
 
 SRCS    := $(wildcard $(SRCDIR)/*.c)
-OBJS    := $(patsubst $(SRCDIR)/%.c,$(BUILDDIR)/%.o,$(SRCS))
+# sqlite3.c needs special flags, so exclude it from the normal OBJS
+SRCS_NO_SQLITE := $(filter-out $(SRCDIR)/sqlite3.c,$(SRCS))
+OBJS    := $(patsubst $(SRCDIR)/%.c,$(BUILDDIR)/%.o,$(SRCS_NO_SQLITE))
+OBJS    += $(BUILDDIR)/sqlite3.o
 TARGET  := $(BUILDDIR)/vek
 
 # Test sources (each test_*.c is a standalone binary)
@@ -31,6 +34,10 @@ debug: $(TARGET)
 
 $(TARGET): $(OBJS) | $(BUILDDIR)
 	$(CC) $(CFLAGS) -o $@ $^ -lm -lpthread -ldl
+
+# Special rule for sqlite3.c (suppress warnings, add defines)
+$(BUILDDIR)/sqlite3.o: $(SRCDIR)/sqlite3.c | $(BUILDDIR)
+	$(CC) -std=c11 -w -DSQLITE_THREADSAFE=1 -DSQLITE_OMIT_LOAD_EXTENSION -O2 -c -o $@ $<
 
 $(BUILDDIR)/%.o: $(SRCDIR)/%.c | $(BUILDDIR)
 	$(CC) $(CFLAGS) -c -o $@ $<

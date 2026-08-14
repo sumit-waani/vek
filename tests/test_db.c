@@ -1,8 +1,9 @@
 /*
- * Unit tests for the db (Turso) stdlib package.
- * Tests function registration and graceful handling when
- * Turso env vars are not set (should not crash).
+ * Unit tests for the db (SQLite) stdlib package.
+ * Tests function registration and database operations
+ * using an in-memory SQLite database.
  */
+#define _POSIX_C_SOURCE 200809L
 #include "common.h"
 #include "value.h"
 #include "memory.h"
@@ -85,37 +86,71 @@ static bool test_package_registered(void) {
     return true;
 }
 
-// Test that db.connect returns nil when env vars are not set
-static bool test_connect_no_env(void) {
-    // Ensure TURSO env vars are not set (test environment)
+// Test that db.connect succeeds with :memory: database
+static bool test_connect_memory(void) {
     Value result = call_db_fn("connect", 0, NULL);
-    // Without env vars set, connect should return nil
-    ASSERT(IS_NIL(result));
+    // With DATABASE_PATH=:memory:, connect should succeed
+    ASSERT(!IS_NIL(result));
+    ASSERT(IS_BOOL(result));
+    ASSERT(AS_BOOL(result) == true);
     return true;
 }
 
-// Test that db.query returns nil when not connected
-static bool test_query_no_connection(void) {
+// Test that db.exec works with actual SQL
+static bool test_exec_create_table(void) {
     Value args[1];
-    args[0] = OBJ_VAL(obj_string_new("SELECT 1", 8));
-    Value result = call_db_fn("query", 1, args);
-    ASSERT(IS_NIL(result));
-    return true;
-}
-
-// Test that db.exec returns nil when not connected
-static bool test_exec_no_connection(void) {
-    Value args[1];
-    args[0] = OBJ_VAL(obj_string_new("INSERT INTO test VALUES (1)", 27));
+    args[0] = OBJ_VAL(obj_string_new(
+        "CREATE TABLE IF NOT EXISTS test_users (id INTEGER PRIMARY KEY, name TEXT, age INTEGER)", 90));
     Value result = call_db_fn("exec", 1, args);
-    ASSERT(IS_NIL(result));
+    // exec returns last_insert_rowid (0 for DDL)
+    ASSERT(!IS_NIL(result));
     return true;
 }
 
-// Test that db.close does not crash when not connected
-static bool test_close_no_connection(void) {
-    Value result = call_db_fn("close", 0, NULL);
-    ASSERT(IS_NIL(result));
+// Test that db.exec can insert data
+static bool test_exec_insert(void) {
+    Value args[3];
+    args[0] = OBJ_VAL(obj_string_new("INSERT INTO test_users (name, age) VALUES (?, ?)", 49));
+    args[1] = OBJ_VAL(obj_string_new("Alice", 5));
+    args[2] = INT_VAL(30);
+    Value result = call_db_fn("exec", 3, args);
+    ASSERT(!IS_NIL(result));
+    // Should return the last_insert_rowid (1 for first insert)
+    ASSERT(IS_INT(result));
+    ASSERT(AS_INT(result) == 1);
+    return true;
+}
+
+// Test that db.query returns results
+static bool test_query_select(void) {
+    Value args[1];
+    args[0] = OBJ_VAL(obj_string_new("SELECT id, name, age FROM test_users", 36));
+    Value result = call_db_fn("query", 1, args);
+    ASSERT(!IS_NIL(result));
+    ASSERT(IS_LIST(result));
+
+    ObjList* list = AS_LIST(result);
+    ASSERT(list->length == 1);
+
+    // First row should be a map with id=1, name="Alice", age=30
+    Value row = list->data[0];
+    ASSERT(IS_MAP(row));
+
+    ObjMap* map = AS_MAP(row);
+    ObjString* name_key = obj_string_new("name", 4);
+    Value name_val;
+    ASSERT(obj_map_get(map, name_key, &name_val));
+    ASSERT(IS_STRING(name_val));
+    ObjString* name_str = AS_STRING(name_val);
+    ASSERT(name_str->length == 5);
+    ASSERT(memcmp(name_str->data, "Alice", 5) == 0);
+
+    ObjString* age_key = obj_string_new("age", 3);
+    Value age_val;
+    ASSERT(obj_map_get(map, age_key, &age_val));
+    ASSERT(IS_INT(age_val));
+    ASSERT(AS_INT(age_val) == 30);
+
     return true;
 }
 
@@ -137,10 +172,16 @@ static bool test_exec_invalid_args(void) {
     return true;
 }
 
+// Test that db.close does not crash
+static bool test_close(void) {
+    Value result = call_db_fn("close", 0, NULL);
+    ASSERT(IS_NIL(result));
+    return true;
+}
+
 int main(void) {
-    // Unset Turso env vars to test graceful handling
-    unsetenv("TURSO_DATABASE_URL");
-    unsetenv("TURSO_AUTH_TOKEN");
+    // Use in-memory SQLite database for testing
+    setenv("DATABASE_PATH", ":memory:", 1);
 
     // Initialize subsystems (same as main.c)
     gc_init();
@@ -149,15 +190,16 @@ int main(void) {
     vm_init();
     stdlib_init();
 
-    printf("=== DB (Turso) Tests ===\n");
+    printf("=== DB (SQLite) Tests ===\n");
 
     TEST(package_registered);
-    TEST(connect_no_env);
-    TEST(query_no_connection);
-    TEST(exec_no_connection);
-    TEST(close_no_connection);
+    TEST(connect_memory);
+    TEST(exec_create_table);
+    TEST(exec_insert);
+    TEST(query_select);
     TEST(query_invalid_args);
     TEST(exec_invalid_args);
+    TEST(close);
 
     printf("\n%d/%d tests passed\n", tests_passed, tests_run);
 

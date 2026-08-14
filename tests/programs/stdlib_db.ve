@@ -1,5 +1,5 @@
-# Test db (Turso) stdlib package
-# Without TURSO_DATABASE_URL set, operations should return nil gracefully
+# Test db (SQLite) stdlib package
+# Without DATABASE_PATH set, operations use default app.db
 
 # Try to connect without env vars
 result = db.connect()

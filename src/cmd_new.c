@@ -215,9 +215,8 @@ static int generate_env_example(const char* base) {
     snprintf(path, sizeof(path), "%s/.env.example", base);
 
     const char* content =
-        "# Turso Database (required)\n"
-        "TURSO_DATABASE_URL=libsql://your-db-name-org.turso.io\n"
-        "TURSO_AUTH_TOKEN=your-auth-token\n"
+        "# Database\n"
+        "DATABASE_PATH=app.db\n"
         "\n"
         "# S3-compatible storage (required for file uploads)\n"
         "S3_ENDPOINT=https://your-endpoint.r2.cloudflarestorage.com\n"
