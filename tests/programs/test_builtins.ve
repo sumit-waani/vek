@@ -1,0 +1,66 @@
+# Builtin function tests: type_of, to_s, to_i, to_f, len
+
+# type_of on every type
+print(type_of(42))
+print(type_of(3.14))
+print(type_of(true))
+print(type_of(false))
+print(type_of(nil))
+print(type_of("hello"))
+print(type_of([1, 2, 3]))
+print(type_of({a: 1}))
+print(type_of(print))
+
+# to_s: type conversion to string
+print(to_s(42))
+print(to_s(3.14))
+print(to_s(true))
+print(to_s(false))
+print(to_s(nil))
+print(to_s("already"))
+
+# to_i: integer conversion
+# From string
+print(to_i("123"))
+print(to_i("0"))
+print(to_i("-5"))
+print(to_i("abc"))
+print(to_i(""))
+# From float (truncation)
+print(to_i(3.99))
+print(to_i(-2.7))
+# From bool
+print(to_i(true))
+print(to_i(false))
+# From int (identity)
+print(to_i(42))
+# From nil
+print(to_i(nil))
+
+# to_f: float conversion
+# From string
+print(to_f("3.14"))
+print(to_f("0"))
+print(to_f("abc"))
+print(to_f(""))
+# From int
+print(to_f(42))
+print(to_f(0))
+# From bool
+print(to_f(true))
+print(to_f(false))
+# From nil
+print(to_f(nil))
+
+# len: length of collections and strings
+print(len("hello"))
+print(len(""))
+print(len("a"))
+print(len([1, 2, 3]))
+print(len([]))
+print(len({a: 1, b: 2, c: 3}))
+print(len({}))
+
+# type_of with expressions
+print(type_of(1 + 2))
+print(type_of("hi" + " there"))

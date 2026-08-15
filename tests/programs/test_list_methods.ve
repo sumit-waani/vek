@@ -1,0 +1,106 @@
+# List method tests: all properties and methods + edge cases
+
+# Basic operations
+nums = [10, 20, 30, 40, 50]
+print(nums.length)
+print(nums.first)
+print(nums.last)
+print(nums.is_empty)
+
+# Empty list edge cases
+empty = []
+print(empty.length)
+print(empty.first)
+print(empty.last)
+print(empty.is_empty)
+
+# pop
+items = [1, 2, 3]
+popped = items.pop
+print(popped)
+print(items.length)
+print(items.last)
+
+# pop until empty
+one = [99]
+print(one.pop)
+print(one.pop)
+print(one.length)
+
+# push
+data = []
+data.push(1)
+data.push(2)
+data.push(3)
+print(data.length)
+print(data.first)
+print(data.last)
+
+# push multiple values
+multi = []
+multi.push(10, 20, 30)
+print(multi.length)
+print(multi[0])
+print(multi[1])
+print(multi[2])
+
+# contains
+nums2 = [1, 2, 3, 4, 5]
+print(nums2.contains(3))
+print(nums2.contains(6))
+print(nums2.contains(1))
+print(nums2.contains(5))
+
+# contains with different types
+mixed = [1, "two", true, nil]
+print(mixed.contains("two"))
+print(mixed.contains(true))
+print(mixed.contains(nil))
+print(mixed.contains(99))
+
+# reverse
+orig = [1, 2, 3, 4, 5]
+rev = orig.reverse
+print(rev.length)
+print(rev[0])
+print(rev[4])
+
+# reverse empty
+print([].reverse.length)
+
+# reverse single element
+single = [42]
+rsingle = single.reverse
+print(rsingle.length)
+print(rsingle[0])
+
+# join
+words = ["hello", "world", "foo"]
+print(words.join(" "))
+print(words.join(","))
+print(words.join(""))
+print(words.join(" - "))
+
+# join with non-string elements
+nums3 = [1, 2, 3]
+print(nums3.join("-"))
+
+# join empty list
+print([].join(","))
+
+# join single element
+print(["solo"].join(","))
+
+# chained operations
+chain = [3, 1, 4, 1, 5, 9]
+print(chain.reverse.first)
+print(chain.reverse.last)
+print(chain.contains(4))
+print(chain.length)
+
+# nested lists
+nested = [[1, 2], [3, 4], [5, 6]]
+print(nested.length)
+print(nested.first.length)
+print(nested.last.length)
+print(nested[1][0])

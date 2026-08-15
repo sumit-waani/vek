@@ -1,0 +1,95 @@
+# Map method tests: all properties and methods + edge cases
+
+# Basic operations
+m = {name: "vek", version: "0.1", year: 2024}
+print(m.length)
+print(m.is_empty)
+
+# Empty map edge cases
+empty = {}
+print(empty.length)
+print(empty.is_empty)
+
+# keys
+print(m.keys.length)
+for key in m.keys
+  print(key)
+end
+
+# values
+vals = m.values
+print(vals.length)
+
+# has
+print(m.has("name"))
+print(m.has("missing"))
+print(m.has("version"))
+print(m.has(""))
+
+# has on empty map
+print(empty.has("x"))
+
+# delete
+d = {a: 1, b: 2, c: 3}
+print(d.length)
+d.delete("b")
+print(d.length)
+print(d.has("b"))
+print(d.has("a"))
+print(d.has("c"))
+
+# delete non-existent key
+d.delete("z")
+print(d.length)
+
+# delete all keys
+d.delete("a")
+d.delete("c")
+print(d.length)
+print(d.is_empty)
+
+# overwrite existing key
+ow = {x: 1}
+print(ow.x)
+ow.x = 99
+print(ow.x)
+print(ow.length)
+
+# dot access for reading
+m2 = {greeting: "hello", count: 42, flag: true}
+print(m2.greeting)
+print(m2.count)
+print(m2.flag)
+
+# bracket access with string key
+print(m2["greeting"])
+print(m2["count"])
+
+# set via dot
+m3 = {}
+m3.foo = "bar"
+m3.num = 123
+print(m3.foo)
+print(m3.num)
+print(m3.length)
+
+# nested maps
+outer = {inner: {val: 42}}
+print(outer.inner.val)
+
+# map with different value types
+mixed = {a: 1, b: "two", c: true, d: nil, e: [1, 2, 3]}
+print(mixed.a)
+print(mixed.b)
+print(mixed.c)
+print(mixed.d)
+print(mixed.e.length)
+
+# keys after delete + insert cycle
+cycle = {x: 1, y: 2}
+cycle.delete("x")
+cycle.z = 3
+print(cycle.length)
+print(cycle.has("x"))
+print(cycle.has("y"))
+print(cycle.has("z"))
