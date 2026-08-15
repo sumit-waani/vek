@@ -5,8 +5,8 @@
 #include "value.h"
 
 // GC configuration
-#define GC_HEAP_GROW_FACTOR 2
-#define GC_INITIAL_THRESHOLD (1024 * 64)  // 64 KB initial threshold
+#define GC_HEAP_GROW_FACTOR 4  // Balanced: moderate frequency, moderate peak memory
+#define GC_INITIAL_THRESHOLD (1024 * 256)  // 256 KB initial threshold
 
 // GC state
 struct GC {
@@ -22,6 +22,11 @@ struct GC {
     Value*      roots;
     uint32_t    root_count;
     uint32_t    root_capacity;
+
+    // Pinned objects (separate list for fast root marking)
+    ObjHeader** pinned_objects;
+    uint32_t    pinned_count;
+    uint32_t    pinned_cap;
 
     // Threshold for triggering collection
     size_t      next_gc;

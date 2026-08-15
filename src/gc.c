@@ -19,6 +19,9 @@ void gc_init(void) {
     gc.roots = NULL;
     gc.root_count = 0;
     gc.root_capacity = 0;
+    gc.pinned_objects = NULL;
+    gc.pinned_count = 0;
+    gc.pinned_cap = 0;
     gc.next_gc = GC_INITIAL_THRESHOLD;
     gc.enabled = true;
 
@@ -48,6 +51,11 @@ void gc_destroy(void) {
     gc.roots = NULL;
     gc.root_count = 0;
     gc.root_capacity = 0;
+
+    free(gc.pinned_objects);
+    gc.pinned_objects = NULL;
+    gc.pinned_count = 0;
+    gc.pinned_cap = 0;
 }
 
 // Track a newly allocated object for GC
@@ -179,17 +187,18 @@ static void gc_trace_references(void) {
 
 // Mark all roots
 static void gc_mark_roots(void) {
-    // Mark pinned objects
-    for (uint32_t i = 0; i < tracked_count; i++) {
-        if (tracked_objects[i] && (tracked_objects[i]->flags & OBJ_FLAG_PIN)) {
-            gc_mark_object(tracked_objects[i]);
-        }
+    // Mark pinned objects (separate list, O(pinned) instead of O(tracked))
+    for (uint32_t i = 0; i < gc.pinned_count; i++) {
+        gc_mark_object(gc.pinned_objects[i]);
     }
 
     // Mark C-held root values
     for (uint32_t i = 0; i < gc.root_count; i++) {
         gc_mark_value(gc.roots[i]);
     }
+
+    // Mark VM roots (stack, frames, globals, upvalues)
+    vm_mark_roots();
 }
 
 // Sweep: free all unmarked objects, compact tracked array
@@ -261,9 +270,31 @@ void gc_pop_root(void) {
 
 // Pin/unpin: prevent an object from being collected
 void vm_pin(ObjHeader* obj) {
-    if (obj) obj->flags |= OBJ_FLAG_PIN;
+    if (!obj) return;
+    obj->flags |= OBJ_FLAG_PIN;
+
+    // Add to pinned list
+    if (gc.pinned_count >= gc.pinned_cap) {
+        gc.pinned_cap = gc.pinned_cap < 16 ? 16 : gc.pinned_cap * 2;
+        gc.pinned_objects = (ObjHeader**)realloc(gc.pinned_objects,
+                            sizeof(ObjHeader*) * gc.pinned_cap);
+        if (!gc.pinned_objects) {
+            fprintf(stderr, "vek: gc pinned list out of memory\n");
+            exit(1);
+        }
+    }
+    gc.pinned_objects[gc.pinned_count++] = obj;
 }
 
 void vm_unpin(ObjHeader* obj) {
-    if (obj) obj->flags &= ~OBJ_FLAG_PIN;
+    if (!obj) return;
+    obj->flags &= ~OBJ_FLAG_PIN;
+
+    // Remove from pinned list (swap with last)
+    for (uint32_t i = 0; i < gc.pinned_count; i++) {
+        if (gc.pinned_objects[i] == obj) {
+            gc.pinned_objects[i] = gc.pinned_objects[--gc.pinned_count];
+            return;
+        }
+    }
 }

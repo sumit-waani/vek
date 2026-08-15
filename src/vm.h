@@ -75,6 +75,9 @@ typedef struct {
     char error_msg[512];
     bool had_error;
 
+    // GC instruction countdown
+    int gc_countdown;
+
     // Call depth for vm_call (stop interpreting when frame_count drops to this)
     int call_depth;
 } VM;
@@ -92,6 +95,9 @@ extern VM vm;
 // VM lifecycle
 void vm_init(void);
 void vm_free(void);
+
+// GC support: mark all VM-held roots
+void vm_mark_roots(void);
 
 // Interpret source code
 InterpretResult vm_interpret(const char* source);

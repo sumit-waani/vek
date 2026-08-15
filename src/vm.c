@@ -130,6 +130,7 @@ void vm_init(void) {
     vm.handler_count = 0;
     vm.had_error = false;
     vm.error_msg[0] = '\0';
+    vm.gc_countdown = 512;
     vm.call_depth = 0;
 
     // Create globals table
@@ -144,6 +145,31 @@ void vm_init(void) {
     define_native("to_i", native_to_i, 1);
     define_native("to_f", native_to_f, 1);
     define_native("len", native_len, 1);
+}
+
+// Mark all VM-held roots for GC
+void vm_mark_roots(void) {
+    // Mark the value stack (all live values)
+    for (Value* slot = vm.stack; slot < vm.stack_top; slot++) {
+        gc_mark_value(*slot);
+    }
+
+    // Mark closures in active call frames
+    for (int i = 0; i < vm.frame_count; i++) {
+        if (vm.frames[i].closure) {
+            gc_mark_object((ObjHeader*)vm.frames[i].closure);
+        }
+    }
+
+    // Mark globals map (already pinned, but be explicit)
+    if (vm.globals) {
+        gc_mark_object((ObjHeader*)vm.globals);
+    }
+
+    // Mark open upvalues
+    for (ObjUpvalue* uv = vm.open_upvalues; uv != NULL; uv = uv->next) {
+        gc_mark_object((ObjHeader*)uv);
+    }
 }
 
 void vm_free(void) {
@@ -1060,9 +1086,19 @@ static InterpretResult run(void) {
         [OP_POWER]         = &&op_power,
     };
 
-#define DISPATCH() do { if (vm.had_error) return INTERPRET_RUNTIME_ERROR; goto *dispatch_table[READ_BYTE()]; } while(0)
+#define GC_CHECK_INTERVAL 512  // Check GC every N instructions
+
+#define DISPATCH() do { \
+    if (vm.had_error) return INTERPRET_RUNTIME_ERROR; \
+    if (--vm.gc_countdown <= 0) { vm.gc_countdown = GC_CHECK_INTERVAL; gc_maybe_collect(); } \
+    goto *dispatch_table[READ_BYTE()]; \
+} while(0)
 #else
-#define DISPATCH() do { if (vm.had_error) return INTERPRET_RUNTIME_ERROR; goto loop_top; } while(0)
+#define DISPATCH() do { \
+    if (vm.had_error) return INTERPRET_RUNTIME_ERROR; \
+    if (--vm.gc_countdown <= 0) { vm.gc_countdown = GC_CHECK_INTERVAL; gc_maybe_collect(); } \
+    goto loop_top; \
+} while(0)
 #endif
 
 #ifdef USE_COMPUTED_GOTO
