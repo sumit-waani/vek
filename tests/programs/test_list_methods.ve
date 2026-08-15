@@ -104,3 +104,127 @@ print(nested.length)
 print(nested.first.length)
 print(nested.last.length)
 print(nested[1][0])
+
+# shift
+data5 = [10, 20, 30]
+print(data5.shift)
+print(data5.length)
+print(data5.first)
+print([].shift)
+
+# unshift
+data6 = [3, 4]
+data6.unshift(1, 2)
+print(data6.length)
+print(data6[0])
+print(data6[1])
+print(data6[2])
+print(data6[3])
+empty2 = []
+empty2.unshift(42)
+print(empty2.length)
+print(empty2[0])
+
+# insert
+data7 = [1, 4, 5]
+data7.insert(1, 2)
+data7.insert(2, 3)
+print(data7.length)
+print(data7[0])
+print(data7[1])
+print(data7[2])
+print(data7[3])
+print(data7[4])
+
+# remove
+data8 = [10, 20, 30, 40, 50]
+print(data8.remove(2))
+print(data8.length)
+print(data8[2])
+print(data8.remove(0))
+print(data8.length)
+print(data8[0])
+
+# remove out of bounds
+print(data8.remove(99))
+print(data8.remove(-1))
+
+# slice
+data9 = [10, 20, 30, 40, 50]
+sl = data9.slice(1, 4)
+print(sl.length)
+print(sl[0])
+print(sl[1])
+print(sl[2])
+print(data9.slice(0, 0).length)
+print(data9.slice(2).length)
+print(data9.slice(2)[0])
+print(data9.slice(-2).length)
+print(data9.slice(-2)[0])
+
+# sort
+unsorted = [3, 1, 4, 1, 5, 9, 2, 6]
+sorted_list = unsorted.sort
+print(sorted_list.length)
+print(sorted_list[0])
+print(sorted_list[7])
+print(unsorted.length)
+
+# sort strings
+words2 = ["banana", "apple", "cherry"]
+sw = words2.sort
+print(sw[0])
+print(sw[1])
+print(sw[2])
+
+# sort empty
+print([].sort.length)
+
+# uniq
+dupes = [1, 2, 2, 3, 3, 3, 1]
+u = dupes.uniq
+print(u.length)
+print(u[0])
+print(u[1])
+print(u[2])
+print([1, 2, 3].uniq.length)
+
+# flatten
+nested2 = [[1, 2], [3, 4], [5]]
+flat = nested2.flatten
+print(flat.length)
+print(flat[0])
+print(flat[1])
+print(flat[2])
+print(flat[3])
+print(flat[4])
+
+# flatten with mixed
+mixed2 = [1, [2, 3], 4]
+fm = mixed2.flatten
+print(fm.length)
+print(fm[0])
+print(fm[1])
+print(fm[2])
+
+# flatten empty
+print([].flatten.length)
+
+# zip
+a = [1, 2, 3]
+b = ["a", "b", "c"]
+z = a.zip(b)
+print(z.length)
+print(z[0].length)
+print(z[0][0])
+print(z[0][1])
+print(z[1][0])
+print(z[1][1])
+
+# zip different lengths
+short = [1, 2]
+long = ["a", "b", "c", "d"]
+z2 = short.zip(long)
+print(z2.length)
+print(z2[0][0])
+print(z2[1][1])

@@ -767,6 +767,344 @@ static Value map_delete_method(Value receiver, int arg_count, Value* args) {
     return VAL_NIL;
 }
 
+// ---- String methods: repeat, pad_left, pad_right ----
+
+static Value string_repeat_method(Value receiver, int arg_count, Value* args) {
+    ObjString* str = AS_STRING(receiver);
+    if (arg_count < 1 || !IS_INT(args[0])) return OBJ_VAL(obj_string_new("", 0));
+    int64_t n = AS_INT(args[0]);
+    if (n <= 0 || str->length == 0) return OBJ_VAL(obj_string_new("", 0));
+    // Cap to prevent insane allocations; check for overflow
+    if (n > 1024 * 1024) n = 1024 * 1024;
+    int64_t new_len_s = (int64_t)str->length * n;
+    if (new_len_s > 16 * 1024 * 1024) new_len_s = 16 * 1024 * 1024; // 16MB cap
+    uint32_t new_len = (uint32_t)new_len_s;
+    char* buf = (char*)malloc(new_len + 1);
+    for (int64_t i = 0; i < n; i++) {
+        memcpy(buf + i * str->length, str->data, str->length);
+    }
+    buf[new_len] = '\0';
+    ObjString* result = obj_string_new(buf, new_len);
+    free(buf);
+    return OBJ_VAL(result);
+}
+
+static Value string_pad_left_method(Value receiver, int arg_count, Value* args) {
+    ObjString* str = AS_STRING(receiver);
+    if (arg_count < 1 || !IS_INT(args[0])) return receiver;
+    int64_t target_len = AS_INT(args[0]);
+    char pad_char = ' ';
+    if (arg_count >= 2 && IS_STRING(args[1])) {
+        ObjString* pad = AS_STRING(args[1]);
+        if (pad->length > 0) pad_char = pad->data[0];
+    }
+    if (target_len <= (int64_t)str->length) return receiver;
+    uint32_t padding = (uint32_t)(target_len - str->length);
+    uint32_t new_len = (uint32_t)target_len;
+    char* buf = (char*)malloc(new_len + 1);
+    memset(buf, pad_char, padding);
+    memcpy(buf + padding, str->data, str->length);
+    buf[new_len] = '\0';
+    ObjString* result = obj_string_new(buf, new_len);
+    free(buf);
+    return OBJ_VAL(result);
+}
+
+static Value string_pad_right_method(Value receiver, int arg_count, Value* args) {
+    ObjString* str = AS_STRING(receiver);
+    if (arg_count < 1 || !IS_INT(args[0])) return receiver;
+    int64_t target_len = AS_INT(args[0]);
+    char pad_char = ' ';
+    if (arg_count >= 2 && IS_STRING(args[1])) {
+        ObjString* pad = AS_STRING(args[1]);
+        if (pad->length > 0) pad_char = pad->data[0];
+    }
+    if (target_len <= (int64_t)str->length) return receiver;
+    uint32_t padding = (uint32_t)(target_len - str->length);
+    uint32_t new_len = (uint32_t)target_len;
+    char* buf = (char*)malloc(new_len + 1);
+    memcpy(buf, str->data, str->length);
+    memset(buf + str->length, pad_char, padding);
+    buf[new_len] = '\0';
+    ObjString* result = obj_string_new(buf, new_len);
+    free(buf);
+    return OBJ_VAL(result);
+}
+
+// ---- List methods: shift, unshift, insert, remove, slice, sort, uniq, flatten, zip ----
+
+static Value list_shift_method(Value receiver, int arg_count, Value* args) {
+    (void)arg_count; (void)args;
+    ObjList* list = AS_LIST(receiver);
+    if (list->length == 0) return VAL_NIL;
+    Value val = list->data[0];
+    // Shift remaining elements down
+    for (uint32_t i = 1; i < list->length; i++) {
+        list->data[i - 1] = list->data[i];
+    }
+    list->length--;
+    return val;
+}
+
+static Value list_unshift_method(Value receiver, int arg_count, Value* args) {
+    ObjList* list = AS_LIST(receiver);
+    if (arg_count <= 0) return receiver;
+    // Ensure capacity for new elements
+    uint32_t new_len = list->length + (uint32_t)arg_count;
+    if (new_len > list->capacity) {
+        uint32_t new_cap = list->capacity < 8 ? 8 : list->capacity * 2;
+        while (new_cap < new_len) new_cap *= 2;
+        list->data = (Value*)vek_realloc(list->data, sizeof(Value) * list->capacity, sizeof(Value) * new_cap);
+        list->capacity = new_cap;
+    }
+    // Shift existing elements up
+    for (int64_t i = (int64_t)list->length - 1; i >= 0; i--) {
+        list->data[i + arg_count] = list->data[i];
+    }
+    // Insert new elements at front
+    for (int i = 0; i < arg_count; i++) {
+        list->data[i] = args[i];
+    }
+    list->length = new_len;
+    return receiver;
+}
+
+static Value list_insert_method(Value receiver, int arg_count, Value* args) {
+    ObjList* list = AS_LIST(receiver);
+    if (arg_count < 2 || !IS_INT(args[0])) return receiver;
+    int64_t index = AS_INT(args[0]);
+    if (index < 0) index += (int64_t)list->length;
+    if (index < 0) index = 0;
+    if (index > (int64_t)list->length) index = (int64_t)list->length;
+    Value val = args[1];
+    // Ensure capacity
+    if (list->length + 1 > list->capacity) {
+        uint32_t new_cap = GROW_CAPACITY(list->capacity);
+        list->data = (Value*)vek_realloc(list->data, sizeof(Value) * list->capacity, sizeof(Value) * new_cap);
+        list->capacity = new_cap;
+    }
+    // Shift elements right
+    for (int64_t i = (int64_t)list->length - 1; i >= index; i--) {
+        list->data[i + 1] = list->data[i];
+    }
+    list->data[index] = val;
+    list->length++;
+    return receiver;
+}
+
+static Value list_remove_method(Value receiver, int arg_count, Value* args) {
+    ObjList* list = AS_LIST(receiver);
+    if (arg_count < 1 || !IS_INT(args[0])) return VAL_NIL;
+    int64_t index = AS_INT(args[0]);
+    if (index < 0) index += (int64_t)list->length;
+    if (index < 0 || index >= (int64_t)list->length) return VAL_NIL;
+    Value val = list->data[index];
+    // Shift elements left
+    for (uint32_t i = (uint32_t)index + 1; i < list->length; i++) {
+        list->data[i - 1] = list->data[i];
+    }
+    list->length--;
+    return val;
+}
+
+static Value list_slice_method(Value receiver, int arg_count, Value* args) {
+    ObjList* list = AS_LIST(receiver);
+    int64_t start = 0, end = (int64_t)list->length;
+    if (arg_count >= 1 && IS_INT(args[0])) start = AS_INT(args[0]);
+    if (arg_count >= 2 && IS_INT(args[1])) end = AS_INT(args[1]);
+    if (start < 0) start += (int64_t)list->length;
+    if (end < 0) end += (int64_t)list->length;
+    if (start < 0) start = 0;
+    if (end > (int64_t)list->length) end = (int64_t)list->length;
+    ObjList* result = obj_list_new();
+    gc_push_root(OBJ_VAL(result));
+    for (int64_t i = start; i < end; i++) {
+        obj_list_push(result, list->data[i]);
+    }
+    gc_pop_root();
+    return OBJ_VAL(result);
+}
+
+// Simple comparison for sort: compares two Values
+// nil < bool < int/float (by numeric value) < string (lexicographic) < other (by address)
+static int value_compare(const void* a, const void* b) {
+    Value va = *(const Value*)a;
+    Value vb = *(const Value*)b;
+    // Both ints
+    if (IS_INT(va) && IS_INT(vb)) {
+        int64_t ia = AS_INT(va), ib = AS_INT(vb);
+        return (ia > ib) - (ia < ib);
+    }
+    // Both floats
+    if (IS_FLOAT(va) && IS_FLOAT(vb)) {
+        double fa = AS_DOUBLE(va), fb = AS_DOUBLE(vb);
+        return (fa > fb) - (fa < fb);
+    }
+    // Mixed int/float
+    if (IS_INT(va) && IS_FLOAT(vb)) {
+        double fa = (double)AS_INT(va), fb = AS_DOUBLE(vb);
+        return (fa > fb) - (fa < fb);
+    }
+    if (IS_FLOAT(va) && IS_INT(vb)) {
+        double fa = AS_DOUBLE(va), fb = (double)AS_INT(vb);
+        return (fa > fb) - (fa < fb);
+    }
+    // Both strings
+    if (IS_STRING(va) && IS_STRING(vb)) {
+        ObjString* sa = AS_STRING(va);
+        ObjString* sb = AS_STRING(vb);
+        uint32_t min_len = sa->length < sb->length ? sa->length : sb->length;
+        int cmp = memcmp(sa->data, sb->data, min_len);
+        if (cmp != 0) return cmp;
+        return (sa->length > sb->length) - (sa->length < sb->length);
+    }
+    // Booleans: false < true
+    if (IS_BOOL(va) && IS_BOOL(vb)) {
+        return (AS_BOOL(va) - AS_BOOL(vb));
+    }
+    // nil is smallest
+    if (IS_NIL(va) && IS_NIL(vb)) return 0;
+    if (IS_NIL(va)) return -1;
+    if (IS_NIL(vb)) return 1;
+    // Type ordering fallback
+    int ta = IS_BOOL(va) ? 0 : IS_INT(va) ? 1 : IS_FLOAT(va) ? 2 : IS_STRING(va) ? 3 : 4;
+    int tb = IS_BOOL(vb) ? 0 : IS_INT(vb) ? 1 : IS_FLOAT(vb) ? 2 : IS_STRING(vb) ? 3 : 4;
+    return ta - tb;
+}
+
+static Value list_sort_method(Value receiver, int arg_count, Value* args) {
+    (void)arg_count; (void)args;
+    ObjList* list = AS_LIST(receiver);
+    ObjList* sorted = obj_list_new();
+    if (list->length == 0) return OBJ_VAL(sorted);
+    gc_push_root(OBJ_VAL(sorted));
+    sorted->data = (Value*)malloc(sizeof(Value) * list->length);
+    sorted->capacity = list->length;
+    sorted->length = list->length;
+    memcpy(sorted->data, list->data, sizeof(Value) * list->length);
+    qsort(sorted->data, sorted->length, sizeof(Value), value_compare);
+    gc_pop_root();
+    return OBJ_VAL(sorted);
+}
+
+static Value list_uniq_method(Value receiver, int arg_count, Value* args) {
+    (void)arg_count; (void)args;
+    ObjList* list = AS_LIST(receiver);
+    ObjList* result = obj_list_new();
+    gc_push_root(OBJ_VAL(result));
+    for (uint32_t i = 0; i < list->length; i++) {
+        bool found = false;
+        for (uint32_t j = 0; j < result->length; j++) {
+            if (value_equal(list->data[i], result->data[j])) {
+                found = true;
+                break;
+            }
+        }
+        if (!found) {
+            obj_list_push(result, list->data[i]);
+        }
+    }
+    gc_pop_root();
+    return OBJ_VAL(result);
+}
+
+static Value list_flatten_method(Value receiver, int arg_count, Value* args) {
+    (void)arg_count; (void)args;
+    ObjList* list = AS_LIST(receiver);
+    ObjList* result = obj_list_new();
+    gc_push_root(OBJ_VAL(result));
+    // Flatten one level deep
+    for (uint32_t i = 0; i < list->length; i++) {
+        if (IS_LIST(list->data[i])) {
+            ObjList* inner = AS_LIST(list->data[i]);
+            for (uint32_t j = 0; j < inner->length; j++) {
+                obj_list_push(result, inner->data[j]);
+            }
+        } else {
+            obj_list_push(result, list->data[i]);
+        }
+    }
+    gc_pop_root();
+    return OBJ_VAL(result);
+}
+
+static Value list_zip_method(Value receiver, int arg_count, Value* args) {
+    ObjList* list = AS_LIST(receiver);
+    if (arg_count < 1 || !IS_LIST(args[0])) return OBJ_VAL(obj_list_new());
+    ObjList* other = AS_LIST(args[0]);
+    ObjList* result = obj_list_new();
+    gc_push_root(OBJ_VAL(result));
+    uint32_t min_len = list->length < other->length ? list->length : other->length;
+    for (uint32_t i = 0; i < min_len; i++) {
+        ObjList* pair = obj_list_new();
+        gc_push_root(OBJ_VAL(pair));
+        obj_list_push(pair, list->data[i]);
+        obj_list_push(pair, other->data[i]);
+        gc_pop_root();
+        obj_list_push(result, OBJ_VAL(pair));
+    }
+    gc_pop_root();
+    return OBJ_VAL(result);
+}
+
+// ---- Map methods: get, set, entries, merge ----
+
+static Value map_get_method(Value receiver, int arg_count, Value* args) {
+    ObjMap* map = AS_MAP(receiver);
+    if (arg_count < 1 || !IS_STRING(args[0])) return VAL_NIL;
+    Value v;
+    if (obj_map_get(map, AS_STRING(args[0]), &v)) return v;
+    return VAL_NIL;
+}
+
+static Value map_set_method(Value receiver, int arg_count, Value* args) {
+    ObjMap* map = AS_MAP(receiver);
+    if (arg_count < 2 || !IS_STRING(args[0])) return receiver;
+    obj_map_set(map, AS_STRING(args[0]), args[1]);
+    return receiver;
+}
+
+static Value map_entries_method(Value receiver, int arg_count, Value* args) {
+    (void)arg_count; (void)args;
+    ObjMap* map = AS_MAP(receiver);
+    ObjList* entries = obj_list_new();
+    gc_push_root(OBJ_VAL(entries));
+    for (uint32_t i = 0; i < map->capacity; i++) {
+        if (map->entries[i].key != NULL && map->entries[i].key != MAP_TOMBSTONE) {
+            ObjList* pair = obj_list_new();
+            gc_push_root(OBJ_VAL(pair));
+            obj_list_push(pair, OBJ_VAL(map->entries[i].key));
+            obj_list_push(pair, map->entries[i].value);
+            gc_pop_root();
+            obj_list_push(entries, OBJ_VAL(pair));
+        }
+    }
+    gc_pop_root();
+    return OBJ_VAL(entries);
+}
+
+static Value map_merge_method(Value receiver, int arg_count, Value* args) {
+    ObjMap* map = AS_MAP(receiver);
+    if (arg_count < 1 || !IS_MAP(args[0])) return receiver;
+    ObjMap* other = AS_MAP(args[0]);
+    ObjMap* result = obj_map_new();
+    gc_push_root(OBJ_VAL(result));
+    // Copy from original
+    for (uint32_t i = 0; i < map->capacity; i++) {
+        if (map->entries[i].key != NULL && map->entries[i].key != MAP_TOMBSTONE) {
+            obj_map_set(result, map->entries[i].key, map->entries[i].value);
+        }
+    }
+    // Overlay from other (overwrites matching keys)
+    for (uint32_t i = 0; i < other->capacity; i++) {
+        if (other->entries[i].key != NULL && other->entries[i].key != MAP_TOMBSTONE) {
+            obj_map_set(result, other->entries[i].key, other->entries[i].value);
+        }
+    }
+    gc_pop_root();
+    return OBJ_VAL(result);
+}
+
 // ---- Updated field access for methods ----
 
 static bool string_method(ObjString* str, ObjString* method_name, Value* result) {
@@ -853,6 +1191,42 @@ static bool string_method(ObjString* str, ObjString* method_name, Value* result)
         *result = make_bound_method(recv, string_index_of_method, 1);
         return true;
     }
+    if (mlen == 6 && memcmp(m, "repeat", 6) == 0) {
+        *result = make_bound_method(recv, string_repeat_method, 1);
+        return true;
+    }
+    if (mlen == 8 && memcmp(m, "pad_left", 8) == 0) {
+        *result = make_bound_method(recv, string_pad_left_method, -1);
+        return true;
+    }
+    if (mlen == 9 && memcmp(m, "pad_right", 9) == 0) {
+        *result = make_bound_method(recv, string_pad_right_method, -1);
+        return true;
+    }
+    if (mlen == 8 && memcmp(m, "to_bytes", 8) == 0) {
+        *result = OBJ_VAL(obj_bytes_new((const uint8_t*)str->data, str->length));
+        return true;
+    }
+    if (mlen == 5 && memcmp(m, "bytes", 5) == 0) {
+        ObjList* bytes_list = obj_list_new();
+        gc_push_root(OBJ_VAL(bytes_list));
+        for (uint32_t i = 0; i < str->length; i++) {
+            obj_list_push(bytes_list, INT_VAL((int64_t)(uint8_t)str->data[i]));
+        }
+        gc_pop_root();
+        *result = OBJ_VAL(bytes_list);
+        return true;
+    }
+    if (mlen == 5 && memcmp(m, "chars", 5) == 0) {
+        ObjList* chars_list = obj_list_new();
+        gc_push_root(OBJ_VAL(chars_list));
+        for (uint32_t i = 0; i < str->length; i++) {
+            obj_list_push(chars_list, OBJ_VAL(obj_string_new(&str->data[i], 1)));
+        }
+        gc_pop_root();
+        *result = OBJ_VAL(chars_list);
+        return true;
+    }
     return false;
 }
 
@@ -908,6 +1282,42 @@ static bool list_method(ObjList* list, ObjString* method_name, Value* result) {
         *result = make_bound_method(recv, list_join_method, -1);
         return true;
     }
+    if (mlen == 5 && memcmp(m, "shift", 5) == 0) {
+        *result = list_shift_method(recv, 0, NULL);
+        return true;
+    }
+    if (mlen == 7 && memcmp(m, "unshift", 7) == 0) {
+        *result = make_bound_method(recv, list_unshift_method, -1);
+        return true;
+    }
+    if (mlen == 6 && memcmp(m, "insert", 6) == 0) {
+        *result = make_bound_method(recv, list_insert_method, 2);
+        return true;
+    }
+    if (mlen == 6 && memcmp(m, "remove", 6) == 0) {
+        *result = make_bound_method(recv, list_remove_method, 1);
+        return true;
+    }
+    if (mlen == 5 && memcmp(m, "slice", 5) == 0) {
+        *result = make_bound_method(recv, list_slice_method, -1);
+        return true;
+    }
+    if (mlen == 4 && memcmp(m, "sort", 4) == 0) {
+        *result = list_sort_method(recv, 0, NULL);
+        return true;
+    }
+    if (mlen == 4 && memcmp(m, "uniq", 4) == 0) {
+        *result = list_uniq_method(recv, 0, NULL);
+        return true;
+    }
+    if (mlen == 7 && memcmp(m, "flatten", 7) == 0) {
+        *result = list_flatten_method(recv, 0, NULL);
+        return true;
+    }
+    if (mlen == 3 && memcmp(m, "zip", 3) == 0) {
+        *result = make_bound_method(recv, list_zip_method, 1);
+        return true;
+    }
     return false;
 }
 
@@ -955,6 +1365,22 @@ static bool map_method(ObjMap* map, ObjString* method_name, Value* result) {
     }
     if (mlen == 6 && memcmp(m, "delete", 6) == 0) {
         *result = make_bound_method(recv, map_delete_method, 1);
+        return true;
+    }
+    if (mlen == 3 && memcmp(m, "get", 3) == 0) {
+        *result = make_bound_method(recv, map_get_method, 1);
+        return true;
+    }
+    if (mlen == 3 && memcmp(m, "set", 3) == 0) {
+        *result = make_bound_method(recv, map_set_method, 2);
+        return true;
+    }
+    if (mlen == 7 && memcmp(m, "entries", 7) == 0) {
+        *result = map_entries_method(recv, 0, NULL);
+        return true;
+    }
+    if (mlen == 5 && memcmp(m, "merge", 5) == 0) {
+        *result = make_bound_method(recv, map_merge_method, 1);
         return true;
     }
     return false;
@@ -1866,8 +2292,15 @@ static InterpretResult run(void) {
             if (idx < 0) idx += (int64_t)str->length;
             if (idx < 0 || idx >= (int64_t)str->length) { runtime_error("String index out of bounds."); return INTERPRET_RUNTIME_ERROR; }
             vm_push(OBJ_VAL(obj_string_new(&str->data[idx], 1)));
+        } else if (IS_BYTES(obj)) {
+            if (!IS_INT(index)) { runtime_error("Bytes index must be an integer."); return INTERPRET_RUNTIME_ERROR; }
+            ObjBytes* bytes = AS_BYTES(obj);
+            int64_t idx = AS_INT(index);
+            if (idx < 0) idx += (int64_t)bytes->length;
+            if (idx < 0 || idx >= (int64_t)bytes->length) { runtime_error("Bytes index out of bounds."); return INTERPRET_RUNTIME_ERROR; }
+            vm_push(INT_VAL((int64_t)bytes->data[idx]));
         } else {
-            runtime_error("Only lists, maps, and strings support indexing.");
+            runtime_error("Only lists, maps, strings, and bytes support indexing.");
             return INTERPRET_RUNTIME_ERROR;
         }
         DISPATCH();
@@ -1938,8 +2371,16 @@ static InterpretResult run(void) {
                 runtime_error("List has no property '%.*s'.", (int)name->length, name->data);
                 return INTERPRET_RUNTIME_ERROR;
             }
+        } else if (IS_BYTES(obj)) {
+            ObjBytes* bytes = AS_BYTES(obj);
+            if (name->length == 6 && memcmp(name->data, "length", 6) == 0) {
+                vm_push(INT_VAL((int64_t)bytes->length));
+            } else {
+                runtime_error("Bytes has no property '%.*s'.", (int)name->length, name->data);
+                return INTERPRET_RUNTIME_ERROR;
+            }
         } else {
-            runtime_error("Only maps, strings, and lists have fields/methods.");
+            runtime_error("Only maps, strings, lists, and bytes have fields/methods.");
             return INTERPRET_RUNTIME_ERROR;
         }
         DISPATCH();

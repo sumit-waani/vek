@@ -97,3 +97,49 @@ print("hello".slice(1, 3))
 print("hello".slice(0, 5))
 print("hello".slice(2))
 print("hello".slice(0, 0))
+
+# repeat
+print("ha".repeat(3))
+print("x".repeat(5))
+print("abc".repeat(1))
+print("abc".repeat(0))
+print("".repeat(5))
+print("ab".repeat(4))
+
+# pad_left
+print("42".pad_left(5, "0"))
+print("hello".pad_left(3, "0"))
+print("hi".pad_left(5))
+print("abc".pad_left(6, "x"))
+print("".pad_left(3, "0"))
+
+# pad_right
+print("42".pad_right(5, "0"))
+print("hello".pad_right(3, "0"))
+print("hi".pad_right(5))
+print("abc".pad_right(6, "x"))
+print("".pad_right(3, "0"))
+
+# to_bytes
+b = "abc".to_bytes
+print(b.length)
+print(b[0])
+print(b[1])
+print(b[2])
+print("".to_bytes.length)
+
+# bytes
+by = "abc".bytes
+print(by.length)
+print(by[0])
+print(by[1])
+print(by[2])
+print("A".bytes[0])
+
+# chars
+ch = "abc".chars
+print(ch.length)
+print(ch[0])
+print(ch[1])
+print(ch[2])
+print("".chars.length)

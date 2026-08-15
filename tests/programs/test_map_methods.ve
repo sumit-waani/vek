@@ -93,3 +93,61 @@ print(cycle.length)
 print(cycle.has("x"))
 print(cycle.has("y"))
 print(cycle.has("z"))
+
+# get
+m4 = {a: 10, b: 20, c: 30}
+print(m4.get("a"))
+print(m4.get("b"))
+print(m4.get("missing"))
+print(m4.get(""))
+
+# get on empty
+print(empty.get("x"))
+
+# set
+m5 = {x: 1}
+m5.set("y", 2)
+print(m5.get("y"))
+print(m5.length)
+m5.set("x", 99)
+print(m5.get("x"))
+print(m5.length)
+
+# set on empty
+empty.set("first", 1)
+print(empty.get("first"))
+print(empty.length)
+
+# entries
+m6 = {a: 1, b: 2}
+e = m6.entries
+print(e.length)
+print(e[0].length)
+print(e[0][0])
+print(e[0][1])
+
+# entries on empty
+print({}.entries.length)
+
+# merge
+m7 = {a: 1, b: 2}
+m8 = {b: 3, c: 4}
+merged = m7.merge(m8)
+print(merged.get("a"))
+print(merged.get("b"))
+print(merged.get("c"))
+print(merged.length)
+
+# merge with empty
+m9 = {x: 1}
+merged2 = m9.merge({})
+print(merged2.get("x"))
+print(merged2.length)
+
+merged3 = {}.merge({y: 2})
+print(merged3.get("y"))
+print(merged3.length)
+
+# merge does not modify originals
+print(m7.get("b"))
+print(m8.get("b"))
