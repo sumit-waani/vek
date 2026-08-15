@@ -136,6 +136,9 @@ typedef struct {
     size_t length;
     bool is_comment;    // line is purely a comment (starts with # after whitespace)
     bool is_blank;      // line is entirely whitespace
+    bool has_inline_comment;    // line has code followed by an inline comment
+    const char* inline_comment_start;
+    size_t inline_comment_len;
 } SourceLine;
 
 // Split source into lines
@@ -158,6 +161,9 @@ static SourceLine* split_lines(const char* source, size_t* out_count) {
 
         lines[count].start = line_start;
         lines[count].length = line_len;
+        lines[count].has_inline_comment = false;
+        lines[count].inline_comment_start = NULL;
+        lines[count].inline_comment_len = 0;
 
         // Check if blank
         bool blank = true;
@@ -173,6 +179,35 @@ static SourceLine* split_lines(const char* source, size_t* out_count) {
         }
         lines[count].is_blank = blank;
         lines[count].is_comment = comment;
+
+        // Detect inline comments (code followed by # not inside a string)
+        if (!blank && !comment) {
+            bool in_single_quote = false;
+            bool in_double_quote = false;
+            for (size_t i = 0; i < line_len; i++) {
+                char c = line_start[i];
+                if (c == '\'' && !in_double_quote) {
+                    in_single_quote = !in_single_quote;
+                } else if (c == '"' && !in_single_quote) {
+                    in_double_quote = !in_double_quote;
+                } else if (c == '\\' && (in_single_quote || in_double_quote)) {
+                    i++; // skip escaped character
+                } else if (c == '#' && !in_single_quote && !in_double_quote) {
+                    lines[count].has_inline_comment = true;
+                    lines[count].inline_comment_start = line_start + i;
+                    lines[count].inline_comment_len = line_len - i;
+                    // Trim trailing whitespace from comment
+                    while (lines[count].inline_comment_len > 0 &&
+                           (lines[count].inline_comment_start[lines[count].inline_comment_len - 1] == ' ' ||
+                            lines[count].inline_comment_start[lines[count].inline_comment_len - 1] == '\t' ||
+                            lines[count].inline_comment_start[lines[count].inline_comment_len - 1] == '\r')) {
+                        lines[count].inline_comment_len--;
+                    }
+                    break;
+                }
+            }
+        }
+
         count++;
     }
 
@@ -462,6 +497,13 @@ char* fmt_format(const char* source, size_t length, size_t* out_length) {
         size_t code_start = i;
         while (i < line_count && !lines[i].is_comment && !lines[i].is_blank) {
             i++;
+        }
+
+        // Warn about inline comments that may be lost during formatting
+        for (size_t j = code_start; j < i; j++) {
+            if (lines[j].has_inline_comment) {
+                fprintf(stderr, "warning: inline comment on line %zu may not be preserved\n", j + 1);
+            }
         }
 
         // Build a code string from these lines

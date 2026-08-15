@@ -1,0 +1,6 @@
+list = []
+i = 0
+while i < 100000
+  list.push(i)
+  i = i + 1
+end

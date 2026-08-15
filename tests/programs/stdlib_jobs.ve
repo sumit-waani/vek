@@ -1,5 +1,5 @@
 # Test jobs package
-# Without TURSO_DATABASE_URL set, operations should return nil gracefully
+# Without DATABASE_PATH set, operations use default app.db
 
 # Test pending count without connection
 count = jobs.pending()

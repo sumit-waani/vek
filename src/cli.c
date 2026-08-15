@@ -11,6 +11,7 @@
 #include <errno.h>
 #include <sys/wait.h>
 #include <signal.h>
+#include <time.h>
 
 // ---- Internal helpers ----
 
@@ -188,12 +189,25 @@ static int run_with_workers(int workers, const char* path, bool is_vebc, int arg
         return 1;
     }
 
+    // Per-worker restart tracking
+    time_t* last_start_time = (time_t*)calloc((size_t)workers, sizeof(time_t));
+    int* rapid_restarts = (int*)calloc((size_t)workers, sizeof(int));
+    if (!last_start_time || !rapid_restarts) {
+        fprintf(stderr, "Error: could not allocate worker tracking arrays\n");
+        free(pids);
+        free(last_start_time);
+        free(rapid_restarts);
+        return 1;
+    }
+
     // Fork initial workers
     for (int i = 0; i < workers; i++) {
         pid_t pid = fork();
         if (pid < 0) {
             fprintf(stderr, "Error: fork failed: %s\n", strerror(errno));
             free(pids);
+            free(last_start_time);
+            free(rapid_restarts);
             return 1;
         }
         if (pid == 0) {
@@ -207,6 +221,7 @@ static int run_with_workers(int workers, const char* path, bool is_vebc, int arg
             _exit(rc);
         }
         pids[i] = pid;
+        last_start_time[i] = time(NULL);
         fprintf(stderr, "[worker %d] started (pid %d)\n", i, pid);
     }
 
@@ -249,6 +264,28 @@ static int run_with_workers(int workers, const char* path, bool is_vebc, int arg
             continue;
         }
 
+        // Check for rapid restart (backoff logic)
+        time_t now = time(NULL);
+        if (now - last_start_time[worker_idx] <= 1) {
+            // Worker died within 1 second of starting
+            rapid_restarts[worker_idx]++;
+        } else {
+            // Worker ran for more than 1 second, reset counter
+            rapid_restarts[worker_idx] = 0;
+        }
+
+        if (rapid_restarts[worker_idx] >= 5) {
+            fprintf(stderr, "[worker %d] too many rapid restarts, giving up\n", worker_idx);
+            pids[worker_idx] = 0;
+            // Check if all workers are done
+            bool all_done = true;
+            for (int i = 0; i < workers; i++) {
+                if (pids[i] != 0) { all_done = false; break; }
+            }
+            if (all_done) break;
+            continue;
+        }
+
         // Restart the crashed worker
         pid_t pid = fork();
         if (pid < 0) {
@@ -265,6 +302,7 @@ static int run_with_workers(int workers, const char* path, bool is_vebc, int arg
             _exit(rc);
         }
         pids[worker_idx] = pid;
+        last_start_time[worker_idx] = now;
         fprintf(stderr, "[worker %d] restarted (pid %d)\n", worker_idx, pid);
     }
 
@@ -277,6 +315,8 @@ static int run_with_workers(int workers, const char* path, bool is_vebc, int arg
     }
 
     free(pids);
+    free(last_start_time);
+    free(rapid_restarts);
     return 0;
 }
 

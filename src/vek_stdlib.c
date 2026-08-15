@@ -63,8 +63,8 @@ void stdlib_init(void) {
     ObjMap* cache_pkg = create_package("cache");
     stdlib_cache_init(cache_pkg);
 
-    ObjMap* redis_pkg = create_package("redis");
-    stdlib_redis_init(redis_pkg);
+    ObjMap* pubsub_pkg = create_package("pubsub");
+    stdlib_pubsub_init(pubsub_pkg);
 
     ObjMap* db_pkg = create_package("db");
     stdlib_db_init(db_pkg);

@@ -3,18 +3,18 @@
 #include "vek_stdlib.h"
 #include "vm.h"
 #include "gc.h"
-#include "turso.h"
+#include "vek_db.h"
 
 #include <time.h>
 
 /*
- * Jobs stdlib package - Turso/libsql backend.
+ * Jobs stdlib package - SQLite backend.
  *
- * Uses the same TURSO_DATABASE_URL / TURSO_AUTH_TOKEN connection.
+ * Uses the same DATABASE_PATH connection.
  * Table schema: _vek_jobs (id, name, args, status, attempts, run_at, created_at)
  */
 
-static turso_conn* jobs_db = NULL;
+static vek_db_conn* jobs_db = NULL;
 static bool table_created = false;
 
 #define MAX_HANDLERS 64
@@ -234,7 +234,7 @@ static Value jp_parse_value(JParser* p) {
 
 static bool ensure_db(void) {
     if (jobs_db) return true;
-    jobs_db = turso_connect();
+    jobs_db = vek_db_connect();
     if (!jobs_db) return false;
     return true;
 }
@@ -254,8 +254,8 @@ static bool ensure_table(void) {
         "  created_at INTEGER"
         ")";
 
-    int rc = turso_exec_sql(jobs_db, sql);
-    if (rc != TURSO_OK) return false;
+    int rc = vek_db_exec_sql(jobs_db, sql);
+    if (rc != VEK_DB_OK) return false;
 
     table_created = true;
     return true;
@@ -283,23 +283,23 @@ static Value native_jobs_enqueue(int argc, Value* args) {
     const char* sql = "INSERT INTO _vek_jobs (name, args, status, attempts, run_at, created_at) "
                       "VALUES (?, ?, 'pending', 0, ?, ?)";
 
-    turso_stmt* stmt = turso_prepare(jobs_db, sql, (int)strlen(sql));
+    vek_db_stmt* stmt = vek_db_prepare(jobs_db, sql, (int)strlen(sql));
     if (!stmt) {
         free(args_json);
         return VAL_NIL;
     }
 
-    turso_bind_text(stmt, 1, name->data, (int)name->length);
-    turso_bind_text(stmt, 2, args_json, (int)strlen(args_json));
-    turso_bind_int(stmt, 3, (int64_t)now);
-    turso_bind_int(stmt, 4, (int64_t)now);
+    vek_db_bind_text(stmt, 1, name->data, (int)name->length);
+    vek_db_bind_text(stmt, 2, args_json, (int)strlen(args_json));
+    vek_db_bind_int(stmt, 3, (int64_t)now);
+    vek_db_bind_int(stmt, 4, (int64_t)now);
 
     int64_t last_id = 0;
-    int rc = turso_exec(stmt, &last_id);
-    turso_stmt_free(stmt);
+    int rc = vek_db_exec(stmt, &last_id);
+    vek_db_stmt_free(stmt);
     free(args_json);
 
-    if (rc != TURSO_OK) return VAL_NIL;
+    if (rc != VEK_DB_OK) return VAL_NIL;
 
     return VAL_TRUE;
 }
@@ -335,24 +335,24 @@ static Value native_jobs_run_one(int argc, Value* args) {
                       "WHERE status = 'pending' AND run_at <= ? "
                       "ORDER BY id LIMIT 1";
 
-    turso_stmt* stmt = turso_prepare(jobs_db, sql, (int)strlen(sql));
+    vek_db_stmt* stmt = vek_db_prepare(jobs_db, sql, (int)strlen(sql));
     if (!stmt) return VAL_NIL;
 
-    turso_bind_int(stmt, 1, (int64_t)now);
+    vek_db_bind_int(stmt, 1, (int64_t)now);
 
-    turso_rows* rows = turso_query(stmt);
-    turso_stmt_free(stmt);
+    vek_db_rows* rows = vek_db_query(stmt);
+    vek_db_stmt_free(stmt);
     if (!rows) return VAL_NIL;
 
-    int count = turso_row_count(rows);
+    int count = vek_db_row_count(rows);
     if (count == 0) {
-        turso_rows_free(rows);
+        vek_db_rows_free(rows);
         return VAL_FALSE;
     }
 
-    int64_t job_id = turso_row_get_int(rows, 0, 0);
-    const char* job_name = turso_row_get_text(rows, 0, 1);
-    const char* job_args_json = turso_row_get_text(rows, 0, 2);
+    int64_t job_id = vek_db_row_get_int(rows, 0, 0);
+    const char* job_name = vek_db_row_get_text(rows, 0, 1);
+    const char* job_args_json = vek_db_row_get_text(rows, 0, 2);
 
     char name_buf[128];
     if (job_name) {
@@ -365,15 +365,15 @@ static Value native_jobs_run_one(int argc, Value* args) {
     }
 
     char* args_copy = strdup(job_args_json ? job_args_json : "{}");
-    turso_rows_free(rows);
+    vek_db_rows_free(rows);
 
     // Mark as running
     const char* update_sql = "UPDATE _vek_jobs SET status = 'running', attempts = attempts + 1 WHERE id = ?";
-    turso_stmt* update_stmt = turso_prepare(jobs_db, update_sql, (int)strlen(update_sql));
+    vek_db_stmt* update_stmt = vek_db_prepare(jobs_db, update_sql, (int)strlen(update_sql));
     if (update_stmt) {
-        turso_bind_int(update_stmt, 1, job_id);
-        turso_exec(update_stmt, NULL);
-        turso_stmt_free(update_stmt);
+        vek_db_bind_int(update_stmt, 1, job_id);
+        vek_db_exec(update_stmt, NULL);
+        vek_db_stmt_free(update_stmt);
     }
 
     // Find handler
@@ -387,11 +387,11 @@ static Value native_jobs_run_one(int argc, Value* args) {
 
     if (IS_NIL(handler)) {
         const char* revert_sql = "UPDATE _vek_jobs SET status = 'pending' WHERE id = ?";
-        turso_stmt* revert_stmt = turso_prepare(jobs_db, revert_sql, (int)strlen(revert_sql));
+        vek_db_stmt* revert_stmt = vek_db_prepare(jobs_db, revert_sql, (int)strlen(revert_sql));
         if (revert_stmt) {
-            turso_bind_int(revert_stmt, 1, job_id);
-            turso_exec(revert_stmt, NULL);
-            turso_stmt_free(revert_stmt);
+            vek_db_bind_int(revert_stmt, 1, job_id);
+            vek_db_exec(revert_stmt, NULL);
+            vek_db_stmt_free(revert_stmt);
         }
         free(args_copy);
         return VAL_FALSE;
@@ -415,11 +415,11 @@ static Value native_jobs_run_one(int argc, Value* args) {
         done_sql = "UPDATE _vek_jobs SET status = 'failed' WHERE id = ?";
     }
 
-    turso_stmt* done_stmt = turso_prepare(jobs_db, done_sql, (int)strlen(done_sql));
+    vek_db_stmt* done_stmt = vek_db_prepare(jobs_db, done_sql, (int)strlen(done_sql));
     if (done_stmt) {
-        turso_bind_int(done_stmt, 1, job_id);
-        turso_exec(done_stmt, NULL);
-        turso_stmt_free(done_stmt);
+        vek_db_bind_int(done_stmt, 1, job_id);
+        vek_db_exec(done_stmt, NULL);
+        vek_db_stmt_free(done_stmt);
     }
 
     return VAL_TRUE;
@@ -429,7 +429,7 @@ static Value native_jobs_run_one(int argc, Value* args) {
 static Value native_jobs_clear(int argc, Value* args) {
     (void)argc; (void)args;
     if (!ensure_table()) return VAL_NIL;
-    turso_exec_sql(jobs_db, "DELETE FROM _vek_jobs");
+    vek_db_exec_sql(jobs_db, "DELETE FROM _vek_jobs");
     return VAL_TRUE;
 }
 
@@ -439,18 +439,18 @@ static Value native_jobs_pending(int argc, Value* args) {
     if (!ensure_table()) return INT_VAL(0);
 
     const char* sql = "SELECT COUNT(*) FROM _vek_jobs WHERE status = 'pending'";
-    turso_stmt* stmt = turso_prepare(jobs_db, sql, (int)strlen(sql));
+    vek_db_stmt* stmt = vek_db_prepare(jobs_db, sql, (int)strlen(sql));
     if (!stmt) return INT_VAL(0);
 
-    turso_rows* rows = turso_query(stmt);
-    turso_stmt_free(stmt);
+    vek_db_rows* rows = vek_db_query(stmt);
+    vek_db_stmt_free(stmt);
     if (!rows) return INT_VAL(0);
 
     int64_t cnt = 0;
-    if (turso_row_count(rows) > 0) {
-        cnt = turso_row_get_int(rows, 0, 0);
+    if (vek_db_row_count(rows) > 0) {
+        cnt = vek_db_row_get_int(rows, 0, 0);
     }
-    turso_rows_free(rows);
+    vek_db_rows_free(rows);
 
     return INT_VAL(cnt);
 }

@@ -134,9 +134,10 @@
 - `raw` helper for unescaped HTML
 
 #### 2.4 Core Stdlib Packages
-- `db` (Turso/libsql remote connection, parameterized queries, transactions)
+- `db` (SQLite embedded, parameterized queries, transactions)
 - `kv` (in-memory LRU with TTL)
-- `cache` (TTL cache with `get_or_set`)
+- `cache` (in-memory TTL cache with `get_or_set`)
+- `pubsub` (in-process publish/subscribe messaging)
 - `json` (encode/decode)
 - `form` (validation DSL)
 - `session` (signed cookie sessions)
@@ -152,7 +153,7 @@
 #### 2.5 Extended Stdlib Packages
 - `http` (HTTP client with timeouts, retries)
 - `mail` (SMTP send)
-- `jobs` (background queue with Turso persistence, retry with backoff)
+- `jobs` (background queue with SQLite persistence, retry with backoff)
 - `storage` (S3-compatible blob storage)
 - `flash` (one-shot session messages)
 - `ratelimit` (token bucket per key)
@@ -169,7 +170,7 @@
 
 ### Dependencies
 - Phase 1 complete
-- Turso C SDK (libsql C bindings) - vendored/linked
+- SQLite3 amalgamation - vendored in src/
 - OpenSSL or a minimal TLS library for crypto primitives
 
 ### Success Criteria
@@ -195,7 +196,7 @@
 
 #### 3.2 `vek new`
 - Project scaffolding (directory structure, starter files)
-- Interactive prompts (app name, db choice, starter template)
+- Interactive prompts (app name, starter template)
 
 #### 3.3 `vek dev`
 - File watcher (inotify on Linux, kqueue on macOS)
@@ -247,64 +248,21 @@
 
 ---
 
-## Phase 4: Deployment (Docker + Fly.io) [SUPERSEDES PREVIOUS vekd PHASE]
+## Phase 4: Deployment Tooling (v2)
 
-> **The original Phase 4 described a self-hosted `vekd` supervisor binary
-> (systemd, cgroups, reverse proxy, web dashboard, Cloudflare integration).
-> That approach has been removed entirely.** Deployment is now handled by
-> standard container tooling.
+> Phase 4 is reserved for a future custom minimal PaaS-style deployment binary (v2).
+> This will include GitHub integration, Cloudflare DNS/tunnel management, and
+> cgroups-based process isolation.
 
-**Goal:** A clean Docker-based deployment story where the user brings their own
-infrastructure (Turso, S3, optionally Redis) and deploys via any Docker host or
-Fly.io.
+**For v1, deployment is straightforward:**
 
-### Deliverables
+1. `vek build` to produce the `.vebc` artifact
+2. Copy the `vek` binary and `app.vebc` to your VPS/VM
+3. Run with a process supervisor (systemd or supervisor)
+4. Place behind a reverse proxy (nginx or caddy) for TLS and routing
 
-#### 4.1 Generated Dockerfile
-- `vek new` generates a multi-stage Dockerfile alongside the project scaffold
-- Build stage: compiles `.ve` source into `.vebc` artifact
-- Run stage: minimal image with the `vek` binary and the `.vebc` artifact
-- Exposes `$PORT` (default 8080)
-
-#### 4.2 Generated fly.toml
-- `vek new` generates a `fly.toml` with sensible defaults
-- Configured for the app's HTTP port
-- Health check endpoint (`/__ready__`)
-- No Fly Volumes (all persistence is external via Turso/S3)
-
-#### 4.3 Environment Variable Validation
-- On startup, `vek run` checks that all required env vars are present:
-  `TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN`, `S3_ENDPOINT`, `S3_ACCESS_KEY`,
-  `S3_SECRET_KEY`, `S3_BUCKET`, `SECRET_KEY_BASE`
-- Missing vars produce a clear, actionable error message and exit immediately
-- Optional vars (`REDIS_URL`, `PORT`) are documented but not required
-
-#### 4.4 No Vendor CLI Integration
-- The `vek` CLI never shells out to `fly`, `turso`, `aws`, or any other vendor CLI
-- The contract is "bring your own resources": the user provisions Turso/S3/Redis
-  themselves and supplies credentials via environment variables
-- Deployment is: `docker build .` then `flyctl deploy` (or equivalent)
-
-### What Was Removed (from the original Phase 4)
-- `vekd` binary and all associated source
-- Reverse proxy, process supervisor, cgroup management
-- Cloudflare DNS/tunnel integration
-- Web UI dashboard at `:8080`
-- systemd integration
-- Git-based deploy pipeline
-- All "SSH once to install" workflows
-
-### Dependencies
-- Phase 3 complete
-- Docker (for building container images)
-- Fly.io account or any Docker-compatible hosting platform
-
-### Success Criteria
-- `vek new myapp` generates a working Dockerfile and fly.toml
-- `docker build .` produces a runnable container image
-- `flyctl deploy` (or equivalent) deploys the app successfully
-- App starts and connects to Turso/S3 using environment variables
-- Missing env vars produce clear, actionable error messages at startup
+No additional tooling is needed. The app is a single process that reads
+environment variables and serves HTTP on the configured port.
 
 ---
 

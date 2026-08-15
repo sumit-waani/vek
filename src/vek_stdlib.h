@@ -42,7 +42,7 @@ void stdlib_mail_init(ObjMap* pkg);
 void stdlib_jobs_init(ObjMap* pkg);
 void stdlib_storage_init(ObjMap* pkg);
 void stdlib_websocket_init(ObjMap* pkg);
-void stdlib_redis_init(ObjMap* pkg);
+void stdlib_pubsub_init(ObjMap* pkg);
 void stdlib_flash_init(ObjMap* pkg);
 void stdlib_test_init(ObjMap* pkg);
 

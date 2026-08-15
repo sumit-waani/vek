@@ -1,7 +1,7 @@
 #define _POSIX_C_SOURCE 200809L
 #include "common.h"
 #include "cli.h"
-#include "turso.h"
+#include "vek_db.h"
 
 #include <dirent.h>
 #include <sys/stat.h>
@@ -16,62 +16,61 @@
     "  applied_at TEXT NOT NULL DEFAULT (datetime('now'))" \
     ")"
 
-static turso_conn* open_database(void) {
-    turso_conn* conn = turso_connect();
+static vek_db_conn* open_database(void) {
+    vek_db_conn* conn = vek_db_connect();
     if (!conn) {
-        fprintf(stderr, "Error: could not connect to database.\n");
-        fprintf(stderr, "Set TURSO_DATABASE_URL and TURSO_AUTH_TOKEN environment variables.\n");
-        fprintf(stderr, "See https://turso.tech for setup instructions.\n");
+        fprintf(stderr, "Error: could not open database.\n");
+        fprintf(stderr, "Set DATABASE_PATH environment variable or use the default (app.db).\n");
         return NULL;
     }
 
-    int rc = turso_exec_sql(conn, MIGRATIONS_TABLE_SQL);
-    if (rc != TURSO_OK) {
+    int rc = vek_db_exec_sql(conn, MIGRATIONS_TABLE_SQL);
+    if (rc != VEK_DB_OK) {
         fprintf(stderr, "Error: could not create migrations table.\n");
-        turso_disconnect(conn);
+        vek_db_disconnect(conn);
         return NULL;
     }
 
     return conn;
 }
 
-static bool is_migration_applied(turso_conn* conn, const char* filename) {
+static bool is_migration_applied(vek_db_conn* conn, const char* filename) {
     const char* sql = "SELECT COUNT(*) FROM _migrations WHERE filename = ?";
-    turso_stmt* stmt = turso_prepare(conn, sql, (int)strlen(sql));
+    vek_db_stmt* stmt = vek_db_prepare(conn, sql, (int)strlen(sql));
     if (!stmt) return false;
 
-    turso_bind_text(stmt, 1, filename, (int)strlen(filename));
-    turso_rows* rows = turso_query(stmt);
-    turso_stmt_free(stmt);
+    vek_db_bind_text(stmt, 1, filename, (int)strlen(filename));
+    vek_db_rows* rows = vek_db_query(stmt);
+    vek_db_stmt_free(stmt);
     if (!rows) return false;
 
     bool applied = false;
-    if (turso_row_count(rows) > 0) {
-        applied = turso_row_get_int(rows, 0, 0) > 0;
+    if (vek_db_row_count(rows) > 0) {
+        applied = vek_db_row_get_int(rows, 0, 0) > 0;
     }
-    turso_rows_free(rows);
+    vek_db_rows_free(rows);
     return applied;
 }
 
-static const char* get_migration_timestamp(turso_conn* conn, const char* filename, char* buf, size_t buf_size) {
+static const char* get_migration_timestamp(vek_db_conn* conn, const char* filename, char* buf, size_t buf_size) {
     const char* sql = "SELECT applied_at FROM _migrations WHERE filename = ?";
-    turso_stmt* stmt = turso_prepare(conn, sql, (int)strlen(sql));
+    vek_db_stmt* stmt = vek_db_prepare(conn, sql, (int)strlen(sql));
     if (!stmt) return NULL;
 
-    turso_bind_text(stmt, 1, filename, (int)strlen(filename));
-    turso_rows* rows = turso_query(stmt);
-    turso_stmt_free(stmt);
+    vek_db_bind_text(stmt, 1, filename, (int)strlen(filename));
+    vek_db_rows* rows = vek_db_query(stmt);
+    vek_db_stmt_free(stmt);
     if (!rows) return NULL;
 
-    if (turso_row_count(rows) > 0) {
-        const char* ts = turso_row_get_text(rows, 0, 0);
+    if (vek_db_row_count(rows) > 0) {
+        const char* ts = vek_db_row_get_text(rows, 0, 0);
         if (ts) {
             snprintf(buf, buf_size, "%s", ts);
-            turso_rows_free(rows);
+            vek_db_rows_free(rows);
             return buf;
         }
     }
-    turso_rows_free(rows);
+    vek_db_rows_free(rows);
     return NULL;
 }
 
@@ -154,7 +153,7 @@ static void free_file_list(char** files, int count) {
 }
 
 static int migrate_apply(void) {
-    turso_conn* conn = open_database();
+    vek_db_conn* conn = open_database();
     if (!conn) return 1;
 
     bool color = cli_color_enabled();
@@ -164,7 +163,7 @@ static int migrate_apply(void) {
     if (files == NULL || file_count == 0) {
         printf("No migration files found in migrations/ directory.\n");
         free_file_list(files, file_count);
-        turso_disconnect(conn);
+        vek_db_disconnect(conn);
         return 0;
     }
 
@@ -183,48 +182,48 @@ static int migrate_apply(void) {
         if (!sql) {
             fprintf(stderr, "  Error: could not read '%s': %s\n", filepath, strerror(errno));
             free_file_list(files, file_count);
-            turso_disconnect(conn);
+            vek_db_disconnect(conn);
             return 1;
         }
 
-        int rc = turso_begin(conn);
-        if (rc != TURSO_OK) {
+        int rc = vek_db_begin(conn);
+        if (rc != VEK_DB_OK) {
             fprintf(stderr, "  Error: could not begin transaction\n");
-            free(sql); free_file_list(files, file_count); turso_disconnect(conn);
+            free(sql); free_file_list(files, file_count); vek_db_disconnect(conn);
             return 1;
         }
 
-        rc = turso_exec_sql(conn, sql);
-        if (rc != TURSO_OK) {
+        rc = vek_db_exec_sql(conn, sql);
+        if (rc != VEK_DB_OK) {
             fprintf(stderr, "  Error applying '%s'\n", filename);
-            turso_rollback(conn); free(sql);
-            free_file_list(files, file_count); turso_disconnect(conn);
+            vek_db_rollback(conn); free(sql);
+            free_file_list(files, file_count); vek_db_disconnect(conn);
             return 1;
         }
         free(sql);
 
         const char* insert_sql = "INSERT INTO _migrations (filename) VALUES (?)";
-        turso_stmt* stmt = turso_prepare(conn, insert_sql, (int)strlen(insert_sql));
+        vek_db_stmt* stmt = vek_db_prepare(conn, insert_sql, (int)strlen(insert_sql));
         if (!stmt) {
             fprintf(stderr, "  Error recording migration '%s'\n", filename);
-            turso_rollback(conn); free_file_list(files, file_count); turso_disconnect(conn);
+            vek_db_rollback(conn); free_file_list(files, file_count); vek_db_disconnect(conn);
             return 1;
         }
 
-        turso_bind_text(stmt, 1, filename, (int)strlen(filename));
-        rc = turso_exec(stmt, NULL);
-        turso_stmt_free(stmt);
+        vek_db_bind_text(stmt, 1, filename, (int)strlen(filename));
+        rc = vek_db_exec(stmt, NULL);
+        vek_db_stmt_free(stmt);
 
-        if (rc != TURSO_OK) {
+        if (rc != VEK_DB_OK) {
             fprintf(stderr, "  Error recording migration '%s'\n", filename);
-            turso_rollback(conn); free_file_list(files, file_count); turso_disconnect(conn);
+            vek_db_rollback(conn); free_file_list(files, file_count); vek_db_disconnect(conn);
             return 1;
         }
 
-        rc = turso_commit(conn);
-        if (rc != TURSO_OK) {
+        rc = vek_db_commit(conn);
+        if (rc != VEK_DB_OK) {
             fprintf(stderr, "  Error committing migration '%s'\n", filename);
-            free_file_list(files, file_count); turso_disconnect(conn);
+            free_file_list(files, file_count); vek_db_disconnect(conn);
             return 1;
         }
 
@@ -243,12 +242,12 @@ static int migrate_apply(void) {
     }
 
     free_file_list(files, file_count);
-    turso_disconnect(conn);
+    vek_db_disconnect(conn);
     return 0;
 }
 
 static int migrate_status(void) {
-    turso_conn* conn = open_database();
+    vek_db_conn* conn = open_database();
     if (!conn) return 1;
 
     bool color = cli_color_enabled();
@@ -258,7 +257,7 @@ static int migrate_status(void) {
     if (files == NULL || file_count == 0) {
         printf("No migration files found in migrations/ directory.\n");
         free_file_list(files, file_count);
-        turso_disconnect(conn);
+        vek_db_disconnect(conn);
         return 0;
     }
 
@@ -282,7 +281,7 @@ static int migrate_status(void) {
     }
 
     free_file_list(files, file_count);
-    turso_disconnect(conn);
+    vek_db_disconnect(conn);
     return 0;
 }
 
@@ -347,14 +346,13 @@ static int migrate_new(int argc, char** argv) {
 
 static void print_help(void) {
     printf("Usage: vek migrate [command]\n\n");
-    printf("Run and manage database migrations against Turso.\n\n");
+    printf("Run and manage database migrations.\n\n");
     printf("Commands:\n");
     printf("  (none)          Apply all pending migrations\n");
     printf("  status          Show migration status (applied/pending)\n");
     printf("  new <name>      Create a new migration file\n\n");
     printf("Environment:\n");
-    printf("  TURSO_DATABASE_URL   Turso database URL (required)\n");
-    printf("  TURSO_AUTH_TOKEN     Turso auth token (required)\n\n");
+    printf("  DATABASE_PATH   Path to SQLite database (default: app.db)\n\n");
     printf("Examples:\n");
     printf("  vek migrate                     Apply pending migrations\n");
     printf("  vek migrate status              Show which migrations are applied\n");

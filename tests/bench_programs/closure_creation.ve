@@ -1,0 +1,13 @@
+fn make_adder(n)
+  fn adder(x)
+    return n + x
+  end
+  return adder
+end
+
+i = 0
+while i < 100000
+  a = make_adder(i)
+  a(1)
+  i = i + 1
+end
