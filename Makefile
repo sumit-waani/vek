@@ -40,6 +40,10 @@ $(TARGET): $(OBJS) | $(BUILDDIR)
 $(BUILDDIR)/sqlite3.o: $(SRCDIR)/sqlite3.c | $(BUILDDIR)
 	$(CC) -std=c11 -w -DSQLITE_THREADSAFE=1 -DSQLITE_OMIT_LOAD_EXTENSION -O2 $(SANITIZE_FLAGS) -c -o $@ $<
 
+# Special rule for vm.c (suppress computed GOTO warning - intentional GNU extension for performance)
+$(BUILDDIR)/vm.o: $(SRCDIR)/vm.c | $(BUILDDIR)
+	$(CC) $(CFLAGS) -Wno-gnu-label-as-value -c -o $@ $<
+
 $(BUILDDIR)/%.o: $(SRCDIR)/%.c | $(BUILDDIR)
 	$(CC) $(CFLAGS) -c -o $@ $<
 
