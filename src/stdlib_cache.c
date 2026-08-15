@@ -78,7 +78,6 @@ static Value native_cache_delete(int arg_count, Value* args) {
 void stdlib_cache_init(ObjMap* pkg) {
     cache_store = obj_map_new();
     vm_pin((ObjHeader*)cache_store);
-    gc_track_object((ObjHeader*)cache_store);
 
     stdlib_register(pkg, "set", native_cache_set, 3);
     stdlib_register(pkg, "get", native_cache_get, 1);

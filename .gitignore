@@ -1,6 +1,11 @@
 # Build output
 build/
 
+# SQLite runtime files
+app.db
+app.db-shm
+app.db-wal
+
 # Editor files
 *.swp
 *.swo

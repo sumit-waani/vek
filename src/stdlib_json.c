@@ -299,15 +299,17 @@ static Value json_parse_object(JsonParser* p, bool* ok) {
         if (json_peek(p) != '"') { *ok = false; gc_pop_root(); return VAL_NIL; }
         Value key_val = json_parse_string(p, ok);
         if (!*ok) { gc_pop_root(); return VAL_NIL; }
+        gc_push_root(key_val);  // protect key from GC during value parsing
 
         json_skip_ws(p);
-        if (p->pos >= p->len || p->src[p->pos] != ':') { *ok = false; gc_pop_root(); return VAL_NIL; }
+        if (p->pos >= p->len || p->src[p->pos] != ':') { gc_pop_root(); *ok = false; gc_pop_root(); return VAL_NIL; }
         p->pos++; // skip ':'
 
         Value val = json_parse_value(p, ok);
-        if (!*ok) { gc_pop_root(); return VAL_NIL; }
+        if (!*ok) { gc_pop_root(); gc_pop_root(); return VAL_NIL; }
 
         obj_map_set(map, AS_STRING(key_val), val);
+        gc_pop_root();  // key_val is now in the map, safe to unroot
 
         json_skip_ws(p);
         if (p->pos >= p->len) { *ok = false; gc_pop_root(); return VAL_NIL; }

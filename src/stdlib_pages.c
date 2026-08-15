@@ -125,6 +125,13 @@ static char* file_path_to_route(const char* rel_path) {
 // from symlink loops or excessively nested directory trees.
 #define PAGES_MAX_SCAN_DEPTH 32
 
+// Comparison function for qsort of directory entry names
+static int dirent_name_cmp(const void* a, const void* b) {
+    const struct dirent* da = *(const struct dirent**)a;
+    const struct dirent* db = *(const struct dirent**)b;
+    return strcmp(da->d_name, db->d_name);
+}
+
 // Recursively scan a directory for .ve files and execute them.
 // base_dir is the root pages directory (for computing relative paths).
 // current_dir is the directory currently being scanned.
@@ -142,7 +149,10 @@ static int scan_directory(const char* base_dir, const char* current_dir, int dep
         return -1;
     }
 
-    int loaded = 0;
+    // Collect all entries into an array for sorting
+    struct dirent** entries = NULL;
+    int entry_count = 0;
+    int entry_cap = 0;
     struct dirent* entry;
 
     while ((entry = readdir(dir)) != NULL) {
@@ -150,6 +160,25 @@ static int scan_directory(const char* base_dir, const char* current_dir, int dep
         if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
             continue;
         }
+        if (entry_count >= entry_cap) {
+            entry_cap = entry_cap < 16 ? 16 : entry_cap * 2;
+            entries = (struct dirent**)realloc(entries, sizeof(struct dirent*) * (size_t)entry_cap);
+        }
+        // Copy the entry since readdir returns a static buffer
+        struct dirent* copy = (struct dirent*)malloc(sizeof(struct dirent));
+        *copy = *entry;
+        entries[entry_count++] = copy;
+    }
+    closedir(dir);
+
+    // Sort entries by name for deterministic ordering
+    if (entry_count > 1) {
+        qsort(entries, (size_t)entry_count, sizeof(struct dirent*), dirent_name_cmp);
+    }
+
+    int loaded = 0;
+    for (int i = 0; i < entry_count; i++) {
+        entry = entries[i];
 
         // Build full path
         size_t dir_len = strlen(current_dir);
@@ -218,7 +247,11 @@ static int scan_directory(const char* base_dir, const char* current_dir, int dep
         free(full_path);
     }
 
-    closedir(dir);
+    // Free collected entries
+    for (int i = 0; i < entry_count; i++) {
+        free(entries[i]);
+    }
+    free(entries);
     return loaded;
 }
 

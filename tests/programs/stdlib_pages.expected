@@ -4,8 +4,8 @@
 /posts/:id
 /users/:userId/posts/:postId
 /api/health
-loaded: /posts
-loaded: /posts/:id
-loaded: /
 loaded: /about
+loaded: /
+loaded: /posts/:id
+loaded: /posts
 4

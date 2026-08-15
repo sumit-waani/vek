@@ -74,7 +74,6 @@ static Value native_flash_all(int arg_count, Value* args) {
     // Clear all flash messages
     ObjMap* new_store = obj_map_new();
     vm_pin((ObjHeader*)new_store);
-    gc_track_object((ObjHeader*)new_store);
     vm_unpin((ObjHeader*)flash_store);
     flash_store = new_store;
 
@@ -88,7 +87,6 @@ static Value native_flash_clear(int arg_count, Value* args) {
 
     ObjMap* new_store = obj_map_new();
     vm_pin((ObjHeader*)new_store);
-    gc_track_object((ObjHeader*)new_store);
     vm_unpin((ObjHeader*)flash_store);
     flash_store = new_store;
     return VAL_NIL;
@@ -220,7 +218,6 @@ static Value native_flash_render_inline(int arg_count, Value* args) {
     // Clear all flash messages after rendering
     ObjMap* new_store = obj_map_new();
     vm_pin((ObjHeader*)new_store);
-    gc_track_object((ObjHeader*)new_store);
     vm_unpin((ObjHeader*)flash_store);
     flash_store = new_store;
 
@@ -231,7 +228,6 @@ void stdlib_flash_init(ObjMap* pkg) {
     // Initialize the global flash store
     flash_store = obj_map_new();
     vm_pin((ObjHeader*)flash_store);
-    gc_track_object((ObjHeader*)flash_store);
 
     stdlib_register(pkg, "set", native_flash_set, 2);
     stdlib_register(pkg, "get", native_flash_get, 1);

@@ -38,7 +38,6 @@ static Value native_kv_clear(int arg_count, Value* args) {
     (void)arg_count; (void)args;
     ObjMap* new_store = obj_map_new();
     vm_pin((ObjHeader*)new_store);
-    gc_track_object((ObjHeader*)new_store);
     vm_unpin((ObjHeader*)kv_store);
     kv_store = new_store;
     return VAL_NIL;
@@ -56,7 +55,6 @@ static Value native_kv_has(int arg_count, Value* args) {
 void stdlib_kv_init(ObjMap* pkg) {
     kv_store = obj_map_new();
     vm_pin((ObjHeader*)kv_store);
-    gc_track_object((ObjHeader*)kv_store);
 
     stdlib_register(pkg, "set", native_kv_set, 2);
     stdlib_register(pkg, "get", native_kv_get, 1);
